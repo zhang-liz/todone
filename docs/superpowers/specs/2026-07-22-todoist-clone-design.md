@@ -16,8 +16,10 @@ App name "Todone". No Todoist trademark in bundle ID, app name, or UI copy. Visu
 
 ## Architecture
 
+> **Amendment (2026-07-22):** The build machine has Command Line Tools only — no full Xcode — and the SwiftData `@Model` macro plugin (`SwiftDataMacros`) ships exclusively with Xcode. Persistence therefore uses `@Observable` model classes with hand-written `Codable` conformance, saved as a single JSON document (`~/Library/Application Support/Todone/todone.json`) with atomic, debounced writes. Relationships are stored as UUID references; the in-memory `AppStore` resolves them. This matches the already-planned in-memory query engines. The project builds as a Swift Package (`swift build` / `swift test`) and `Scripts/build-app.sh` assembles the `.app` bundle.
+
 - **UI:** SwiftUI, `NavigationSplitView` shell.
-- **Persistence:** SwiftData (`@Model` classes), single local store.
+- **Persistence:** `@Observable` object graph + atomic JSON document store (see amendment above).
 - **Pattern:** Observable models + plain Swift service types (parser, filter engine, recurrence engine, karma calculator). No heavyweight MVVM layer.
 - **Heavy logic lives in pure, testable Swift modules** independent of SwiftUI: `QuickAddParser`, `FilterEngine`, `RecurrenceEngine`, `KarmaEngine`.
 
