@@ -86,7 +86,7 @@ public enum KarmaEngine {
         }
     }
 
-    static func dateFromDayKey(_ key: String, calendar: Calendar) -> Date? {
+    public static func dateFromDayKey(_ key: String, calendar: Calendar) -> Date? {
         let parts = key.split(separator: "-").compactMap { Int($0) }
         guard parts.count == 3 else { return nil }
         var comps = DateComponents()
