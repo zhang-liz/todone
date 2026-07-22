@@ -32,6 +32,11 @@ struct ContentView: View {
         }
         .animation(.default, value: store.lastSaveError)
         .task {
+            switch UserDefaults.standard.string(forKey: "startView") {
+            case "inbox": model.select(.inbox)
+            case "upcoming": model.select(.upcoming)
+            default: break
+            }
             KeyMonitor.shared.start(store: store, model: model)
             GlobalHotkey.shared.register { [weak model] in
                 model?.showQuickAdd = true
