@@ -67,13 +67,14 @@ import Testing
         #expect(t.dueDate == day(2026, 7, 23, 9))
     }
 
-    @Test func plainRecurrenceAdvancesFromDueDate() {
+    @Test func plainRecurrenceCatchesUpFromOverdue() {
         let store = makeStore()
-        // Due Jul 10, completed Jul 22 → next is Jul 11 (from due date).
+        // Due Jul 10, completed Jul 22: advances from the due date but skips
+        // already-passed occurrences → lands on today, not Jul 11.
         let t = store.addTask(title: "loose", dueDate: day(2026, 7, 10),
                               recurrence: "every day")
         store.complete(t, now: now)
-        #expect(t.dueDate == day(2026, 7, 11))
+        #expect(t.dueDate == day(2026, 7, 22))
     }
 
     @Test func uncompleteRestores() {

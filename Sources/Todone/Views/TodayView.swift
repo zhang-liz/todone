@@ -8,6 +8,7 @@ struct TodayView: View {
     @State private var adding = false
 
     var body: some View {
+        let _ = model.dayTick // re-render when the calendar day rolls over
         let overdue = store.overdueTasks().filter { !Calendar.current.isDateInToday($0.dueDate ?? Date()) }
         let today = store.tasksDue(on: Date())
 

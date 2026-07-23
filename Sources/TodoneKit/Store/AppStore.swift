@@ -71,17 +71,25 @@ public final class AppStore {
     /// Load from disk (or start fresh) and ensure invariants like the Inbox exist.
     public func load(from url: URL) {
         storeURL = url
-        if let data = try? Data(contentsOf: url),
-           let doc = try? Self.decoder.decode(StoreDocument.self, from: data) {
-            projects = doc.projects
-            sections = doc.sections
-            tasks = doc.tasks
-            labels = doc.labels
-            filters = doc.filters
-            reminders = doc.reminders
-            events = doc.events
-            dailyStats = doc.dailyStats
-            karma = doc.karma
+        if let data = try? Data(contentsOf: url) {
+            if let doc = try? Self.decoder.decode(StoreDocument.self, from: data) {
+                projects = doc.projects
+                sections = doc.sections
+                tasks = doc.tasks
+                labels = doc.labels
+                filters = doc.filters
+                reminders = doc.reminders
+                events = doc.events
+                dailyStats = doc.dailyStats
+                karma = doc.karma
+            } else {
+                // Unreadable store: keep the bytes aside instead of silently
+                // overwriting the user's data on the next save.
+                let backup = url.deletingPathExtension()
+                    .appendingPathExtension("corrupt-\(Int(Date().timeIntervalSince1970)).json")
+                try? data.write(to: backup)
+                lastSaveError = "Store file was unreadable — saved a copy as \(backup.lastPathComponent) and started fresh."
+            }
         }
         ensureInbox()
         KarmaEngine.reconcileStreaks(state: &karma, now: Date(), calendar: calendar)
@@ -103,27 +111,54 @@ public final class AppStore {
                       dailyStats: dailyStats, karma: karma)
     }
 
+    /// ISO8601 with fractional seconds so completion timestamps within the
+    /// same second keep their order across a save/load round trip.
+    static let isoFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    static let isoFallback = ISO8601DateFormatter()
+
     static let encoder: JSONEncoder = {
         let e = JSONEncoder()
-        e.dateEncodingStrategy = .iso8601
+        e.dateEncodingStrategy = .custom { date, encoder in
+            var c = encoder.singleValueContainer()
+            try c.encode(isoFormatter.string(from: date))
+        }
         e.outputFormatting = [.sortedKeys]
         return e
     }()
 
     static let decoder: JSONDecoder = {
         let d = JSONDecoder()
-        d.dateDecodingStrategy = .iso8601
+        d.dateDecodingStrategy = .custom { decoder in
+            let s = try decoder.singleValueContainer().decode(String.self)
+            if let date = isoFormatter.date(from: s) ?? isoFallback.date(from: s) {
+                return date
+            }
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath,
+                                                    debugDescription: "Bad date: \(s)"))
+        }
         return d
     }()
 
+    /// Debounce a save. Must be called from the thread that mutates the store
+    /// (the main thread in the app); the eventual encode also happens there so
+    /// the object graph is never read while another thread mutates it.
     public func scheduleSave() {
         guard storeURL != nil else { return }
         saveWorkItem?.cancel()
-        let item = DispatchWorkItem { [weak self] in self?.saveNow() }
+        let item = DispatchWorkItem { [weak self] in
+            DispatchQueue.main.async { self?.saveNow() }
+        }
         saveWorkItem = item
         saveQueue.asyncAfter(deadline: .now() + saveDebounce, execute: item)
     }
 
+    /// Encode and write synchronously on the calling thread. Safe because all
+    /// mutations and saves happen on the same (main) thread; write is atomic.
     public func saveNow() {
         guard let url = storeURL else { return }
         do {
@@ -131,10 +166,9 @@ public final class AppStore {
             let dir = url.deletingLastPathComponent()
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             try data.write(to: url, options: .atomic)
-            DispatchQueue.main.async { [weak self] in self?.lastSaveError = nil }
+            lastSaveError = nil
         } catch {
-            let message = "Couldn't save: \(error.localizedDescription)"
-            DispatchQueue.main.async { [weak self] in self?.lastSaveError = message }
+            lastSaveError = "Couldn't save: \(error.localizedDescription)"
         }
     }
 
@@ -158,7 +192,9 @@ public final class AppStore {
         dailyStats = []
         karma = KarmaState()
         ensureInbox()
-        scheduleSave()
+        // An erase must hit disk immediately — a debounced save could die with
+        // the process and resurrect "erased" data.
+        saveNow()
         onRemindersChanged?()
     }
 
@@ -340,6 +376,7 @@ public final class AppStore {
         logEvent(.added, task: task)
         bumpDailyStat(on: Date(), addedDelta: 1)
         scheduleSave()
+        onRemindersChanged?() // keeps the dock badge current for today-due adds
         return task
     }
 
@@ -387,10 +424,19 @@ public final class AppStore {
     /// Complete a task. Recurring tasks advance to the next occurrence instead
     /// of completing; karma and activity still count the completion.
     public func complete(_ task: TodoTask, now: Date = Date()) {
+        guard !task.isCompleted else { return } // no double-count on double-tap
         if let text = task.recurrence, let rule = RecurrenceRule.deserialize(text),
            let due = task.dueDate {
             let base = rule.strict ? Self.carryTime(from: due, onto: now, calendar: calendar) : due
-            if let next = rule.nextOccurrence(after: base, calendar: calendar) {
+            if var next = rule.nextOccurrence(after: base, calendar: calendar) {
+                // Overdue recurring task: skip already-passed occurrences so one
+                // completion catches up instead of staying overdue.
+                var guardCounter = 0
+                while isPast(next, now: now, hasTime: task.hasDueTime), guardCounter < 1000,
+                      let following = rule.nextOccurrence(after: next, calendar: calendar) {
+                    next = following
+                    guardCounter += 1
+                }
                 task.dueDate = next
                 registerCompletion(task, now: now)
                 scheduleSave()
@@ -423,7 +469,14 @@ public final class AppStore {
         task.completedAt = nil
         logEvent(.uncompleted, task: task)
         bumpDailyStat(on: when, completedDelta: -1)
+        // Give back the completion points so complete/uncomplete cycles can't
+        // farm karma. (Goal bonuses stay: the same-day re-complete is blocked
+        // from a second bonus by lastDailyStreakDay/lastWeeklyStreakWeek.)
+        if karma.karmaEnabled, !karma.vacationMode {
+            karma.points = max(0, karma.points - KarmaEngine.completionPoints)
+        }
         scheduleSave()
+        onRemindersChanged?() // restore this task's pending reminders + badge
     }
 
     public func deleteTask(_ task: TodoTask) {
@@ -439,8 +492,18 @@ public final class AppStore {
     }
 
     public func move(_ task: TodoTask, toProject projectID: UUID, section sectionID: UUID?) {
+        let changingBucket = task.projectID != projectID || task.sectionID != sectionID
         task.projectID = projectID
         task.sectionID = sectionID
+        if changingBucket, task.parentID == nil {
+            // Append to the end of the new bucket instead of keeping a stale
+            // sort order that lands at an arbitrary position.
+            let siblings = tasks.filter {
+                $0.projectID == projectID && $0.sectionID == sectionID
+                    && $0.parentID == nil && $0.id != task.id
+            }
+            task.sortOrder = (siblings.map(\.sortOrder).max() ?? 0) + 1
+        }
         // Moving a parent moves its subtasks.
         for sub in tasks where sub.parentID == task.id {
             move(sub, toProject: projectID, section: sectionID)
@@ -477,25 +540,31 @@ public final class AppStore {
 
     public func deleteProject(_ project: Project) {
         guard !project.isInbox else { return }
-        for child in projects.filter({ $0.parentID == project.id }) {
-            deleteProject(child)
-        }
-        let taskIDs = Set(tasks.filter { $0.projectID == project.id }.map(\.id))
+        // descendantProjectIDs is cycle-safe; avoids unbounded recursion if a
+        // parent cycle ever sneaks into the data.
+        let doomed = descendantProjectIDs(of: project.id)
+        let taskIDs = Set(tasks.filter { doomed.contains($0.projectID) }.map(\.id))
         reminders.removeAll { taskIDs.contains($0.taskID) }
-        tasks.removeAll { $0.projectID == project.id }
-        sections.removeAll { $0.projectID == project.id }
-        projects.removeAll { $0.id == project.id }
+        tasks.removeAll { doomed.contains($0.projectID) }
+        sections.removeAll { doomed.contains($0.projectID) }
+        projects.removeAll { doomed.contains($0.id) && !$0.isInbox }
         scheduleSave()
         onRemindersChanged?()
     }
 
     public func archiveProject(_ project: Project, archived: Bool = true) {
         guard !project.isInbox else { return }
-        project.isArchived = archived
-        for child in projects.filter({ $0.parentID == project.id }) {
-            archiveProject(child, archived: archived)
+        let affected = descendantProjectIDs(of: project.id)
+        for p in projects where affected.contains(p.id) && !p.isInbox {
+            p.isArchived = archived
         }
         scheduleSave()
+    }
+
+    /// True when `parentID` is a legal parent for `project` (no self/descendant cycles).
+    public func canSetParent(of project: Project, to parentID: UUID?) -> Bool {
+        guard let parentID else { return true }
+        return !descendantProjectIDs(of: project.id).contains(parentID)
     }
 
     @discardableResult
@@ -570,6 +639,12 @@ public final class AppStore {
     }
 
     // MARK: - Helpers
+
+    /// Is a candidate next-occurrence already in the past?
+    func isPast(_ date: Date, now: Date, hasTime: Bool) -> Bool {
+        if hasTime { return date <= now }
+        return calendar.startOfDay(for: date) < calendar.startOfDay(for: now)
+    }
 
     /// Combine `source`'s time-of-day with `day`'s date.
     static func carryTime(from source: Date, onto day: Date, calendar: Calendar) -> Date {

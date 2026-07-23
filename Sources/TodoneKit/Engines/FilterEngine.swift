@@ -237,15 +237,23 @@ public enum FilterEngine {
             return .term(try parseTerm())
         }
 
-        /// Consume a lowercase keyword (with any internal spaces normalized) if present.
+        /// Consume a keyword if present, requiring a word boundary after it so
+        /// "subtask" doesn't half-consume "subtasks".
         mutating func consume(_ keyword: String) -> Bool {
             skipWhitespace()
             let rest = scanner.substring(from: pos)
-            if rest.lowercased().hasPrefix(keyword.lowercased()) {
-                pos += (keyword as NSString).length
-                return true
+            guard rest.lowercased().hasPrefix(keyword.lowercased()) else { return false }
+            let len = (keyword as NSString).length
+            // If the keyword ends in a letter, the next char must not be a letter/digit.
+            if let lastScalar = keyword.unicodeScalars.last,
+               CharacterSet.alphanumerics.contains(lastScalar),
+               pos + len < scanner.length,
+               let nextScalar = Unicode.Scalar(scanner.character(at: pos + len)),
+               CharacterSet.alphanumerics.contains(nextScalar) {
+                return false
             }
-            return false
+            pos += len
+            return true
         }
 
         /// Read an identifier: quoted string or run of non-delimiter characters.

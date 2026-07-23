@@ -31,6 +31,11 @@ struct ContentView: View {
             }
         }
         .animation(.default, value: store.lastSaveError)
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            model.dayTick += 1
+            NotificationScheduler.shared.rescheduleAll()
+            NotificationScheduler.shared.refreshBadge()
+        }
         .task {
             switch UserDefaults.standard.string(forKey: "startView") {
             case "inbox": model.select(.inbox)

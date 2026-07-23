@@ -82,9 +82,12 @@ struct TaskRowView: View {
         // Brief fill-then-fade like Todoist.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             withAnimation(.easeOut(duration: 0.2)) {
-                store.complete(task)
+                // The task may have been deleted during the animation window.
+                if store.task(task.id) != nil {
+                    store.complete(task)
+                    if model.selectedTaskID == task.id { model.selectedTaskID = nil }
+                }
                 completing = false
-                if model.selectedTaskID == task.id { model.selectedTaskID = nil }
             }
         }
     }

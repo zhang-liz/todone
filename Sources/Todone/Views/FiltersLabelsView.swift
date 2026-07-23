@@ -291,6 +291,11 @@ struct LabelEditorView: View {
             Text(label == nil ? "New Label" : "Edit Label")
                 .font(.headline)
             TextField("Name", text: $name)
+            if nameCollides {
+                Label("A label with this name already exists", systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
             ColorPickerRow(selection: $color)
             HStack {
                 Spacer()
@@ -298,7 +303,7 @@ struct LabelEditorView: View {
                     .keyboardShortcut(.escape, modifiers: [])
                 Button(label == nil ? "Add" : "Save") { save() }
                     .buttonStyle(.borderedProminent)
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || nameCollides)
             }
         }
         .padding(16)
@@ -309,6 +314,14 @@ struct LabelEditorView: View {
                 color = label.color
             }
         }
+    }
+
+    /// True when the typed name belongs to a *different* existing label —
+    /// addLabel would silently return (and we'd recolor) that label.
+    private var nameCollides: Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, let existing = store.labelNamed(trimmed) else { return false }
+        return existing.id != label?.id
     }
 
     private func save() {
@@ -349,7 +362,9 @@ struct ProjectEditorView: View {
 
             Picker("Parent", selection: $parentID) {
                 Text("None").tag(UUID?.none)
-                ForEach(store.projects.filter { !$0.isInbox && !$0.isArchived && $0.id != project?.id }) { p in
+                // Exclude self AND descendants — a cycle would hang the sidebar.
+                let forbidden = project.map { store.descendantProjectIDs(of: $0.id) } ?? []
+                ForEach(store.projects.filter { !$0.isInbox && !$0.isArchived && !forbidden.contains($0.id) }) { p in
                     Text(p.name).tag(UUID?.some(p.id))
                 }
             }

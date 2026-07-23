@@ -36,17 +36,16 @@ public struct RecurrenceRule: Equatable {
     /// Parse a recurrence expression out of `text`. Returns the rule and the
     /// UTF-16 range it occupied, or nil if no recurrence found.
     public static func parse(from text: String) -> (rule: RecurrenceRule, range: NSRange)? {
-        let lower = (text as NSString).lowercased as NSString
+        let lower = text as NSString  // matched case-insensitively; captures lowercased at use
         let full = NSRange(location: 0, length: lower.length)
 
         let weekdayAlt = "sun|sunday|mon|monday|tue|tues|tuesday|wed|weds|wednesday|thu|thur|thurs|thursday|fri|friday|sat|saturday"
 
         // every [!] mon, fri / every tue
-        if let regex = try? NSRegularExpression(
-            pattern: #"\bevery(!?) ((?:(?:"# + weekdayAlt + #")(?:, ?| and | ))*(?:"# + weekdayAlt + #"))\b"#),
+        if let regex = try? NSRegularExpression(pattern: #"\bevery(!?) ((?:(?:"# + weekdayAlt + #")(?:, ?| and | ))*(?:"# + weekdayAlt + #"))\b"#, options: [.caseInsensitive]),
             let m = regex.firstMatch(in: lower as String, range: full) {
             let strict = lower.substring(with: m.range(at: 1)) == "!"
-            let listText = lower.substring(with: m.range(at: 2))
+            let listText = lower.substring(with: m.range(at: 2)).lowercased()
             let parts = listText
                 .replacingOccurrences(of: " and ", with: ",")
                 .split(whereSeparator: { $0 == "," || $0 == " " })
@@ -63,7 +62,7 @@ public struct RecurrenceRule: Equatable {
         }
 
         // every [!] workday / weekday
-        if let regex = try? NSRegularExpression(pattern: #"\bevery(!?) (workday|weekday)\b"#),
+        if let regex = try? NSRegularExpression(pattern: #"\bevery(!?) (workday|weekday)\b"#, options: [.caseInsensitive]),
            let m = regex.firstMatch(in: lower as String, range: full) {
             let strict = lower.substring(with: m.range(at: 1)) == "!"
             let rule = RecurrenceRule(interval: 1, unit: .week, weekdays: [2, 3, 4, 5, 6],
@@ -73,7 +72,7 @@ public struct RecurrenceRule: Equatable {
         }
 
         // every [!] month on the 15th
-        if let regex = try? NSRegularExpression(pattern: #"\bevery(!?) month on the (\d{1,2})(?:st|nd|rd|th)?\b"#),
+        if let regex = try? NSRegularExpression(pattern: #"\bevery(!?) month on the (\d{1,2})(?:st|nd|rd|th)?\b"#, options: [.caseInsensitive]),
            let m = regex.firstMatch(in: lower as String, range: full) {
             let strict = lower.substring(with: m.range(at: 1)) == "!"
             if let day = Int(lower.substring(with: m.range(at: 2))), day >= 1, day <= 31 {
@@ -84,17 +83,16 @@ public struct RecurrenceRule: Equatable {
         }
 
         // every [!] [N] day(s)/week(s)/month(s)/year(s), every morning/evening/night
-        if let regex = try? NSRegularExpression(
-            pattern: #"\bevery(!?) (?:(\d+)|other )? ?(day|days|week|weeks|month|months|year|years|morning|evening|night)\b"#),
+        if let regex = try? NSRegularExpression(pattern: #"\bevery(!?) (?:(\d+)|other )? ?(day|days|week|weeks|month|months|year|years|morning|evening|night)\b"#, options: [.caseInsensitive]),
            let m = regex.firstMatch(in: lower as String, range: full) {
             let strict = lower.substring(with: m.range(at: 1)) == "!"
             var interval = 1
             if m.range(at: 2).location != NSNotFound, let n = Int(lower.substring(with: m.range(at: 2))) {
                 interval = max(1, n)
-            } else if lower.substring(with: m.range).contains("other") {
+            } else if lower.substring(with: m.range).lowercased().contains("other") {
                 interval = 2
             }
-            let unitText = lower.substring(with: m.range(at: 3))
+            let unitText = lower.substring(with: m.range(at: 3)).lowercased()
             let unit: Unit
             if unitText.hasPrefix("day") || unitText == "morning" || unitText == "evening" || unitText == "night" {
                 unit = .day
@@ -144,7 +142,16 @@ public struct RecurrenceRule: Equatable {
             return nil
         case .month:
             guard let added = calendar.date(byAdding: .month, value: interval, to: base) else { return nil }
-            if let day = monthDay {
+            // Anchor day: explicit "on the Nth", or — for plain "every month" —
+            // treat a base on the last day of its month as an end-of-month
+            // anchor so Jan 31 → Feb 28 → Mar 31 instead of drifting to the 28th.
+            var anchor = monthDay
+            if anchor == nil,
+               let baseRange = calendar.range(of: .day, in: .month, for: base),
+               calendar.component(.day, from: base) == baseRange.count {
+                anchor = 31
+            }
+            if let day = anchor {
                 var comps = calendar.dateComponents([.year, .month, .hour, .minute], from: added)
                 let range = calendar.range(of: .day, in: .month,
                                            for: calendar.date(from: DateComponents(year: comps.year, month: comps.month, day: 1)) ?? added)

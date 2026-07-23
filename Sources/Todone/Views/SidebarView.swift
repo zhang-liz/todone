@@ -176,7 +176,15 @@ struct SidebarView: View {
             Divider()
             Button("Archive") { store.archiveProject(project) }
             Button("Delete", role: .destructive) {
-                if model.selection == .project(project.id) { model.select(.inbox) }
+                // The delete cascades to descendants; clear any selection into them.
+                let doomed = store.descendantProjectIDs(of: project.id)
+                if case .project(let sel) = model.selection, doomed.contains(sel) {
+                    model.select(.inbox)
+                }
+                if let tid = model.selectedTaskID, let t = store.task(tid),
+                   doomed.contains(t.projectID) {
+                    model.selectedTaskID = nil
+                }
                 store.deleteProject(project)
             }
         }

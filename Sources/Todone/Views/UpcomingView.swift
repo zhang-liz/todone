@@ -37,6 +37,10 @@ struct UpcomingView: View {
                 .onChange(of: anchorDay) {
                     proxy.scrollTo(dayKey(anchorDay), anchor: .top)
                 }
+                .onChange(of: model.dayTick) {
+                    // Midnight rollover: re-anchor so "today" isn't yesterday.
+                    anchorDay = calendar.startOfDay(for: Date())
+                }
             }
         }
         .navigationTitle("Upcoming")

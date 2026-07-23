@@ -129,10 +129,11 @@ struct TaskGroupView: View {
                     SubtaskListView(parentID: task.id, depth: 1)
                 }
                 .padding(.horizontal, 20)
+                // Dropping onto a row inserts before that row.
+                .dropDestination(for: String.self) { items, _ in
+                    handleDrop(items, before: task)
+                }
                 Divider().padding(.leading, 48)
-            }
-            .dropDestination(for: String.self) { items, _ in
-                handleDrop(items, before: nil)
             }
 
             if adding {
@@ -158,7 +159,7 @@ struct TaskGroupView: View {
 
     private func handleDrop(_ items: [String], before: TodoTask?) -> Bool {
         guard let idString = items.first, let id = UUID(uuidString: idString),
-              let task = store.task(id) else { return false }
+              let task = store.task(id), task.id != before?.id else { return false }
         store.reorder(task, before: before, project: projectID, section: sectionID)
         return true
     }

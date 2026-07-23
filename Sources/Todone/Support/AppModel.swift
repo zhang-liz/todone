@@ -27,6 +27,9 @@ final class AppModel {
     /// Set when a view wants to start inline "add task" mode.
     var pendingInlineAdd = false
 
+    /// Bumped at midnight so date-anchored views (Today, Upcoming) recompute.
+    var dayTick = 0
+
     func select(_ item: SidebarItem) {
         selection = item
         selectedTaskID = nil

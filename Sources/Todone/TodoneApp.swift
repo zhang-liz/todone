@@ -1,8 +1,19 @@
 import SwiftUI
 import TodoneKit
 
+/// Flushes the debounced store save on quit so ⌘Q within the debounce window
+/// can't drop mutations.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    static weak var store: AppStore?
+
+    func applicationWillTerminate(_ notification: Notification) {
+        Self.store?.saveNow()
+    }
+}
+
 @main
 struct TodoneApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var store: AppStore
     @State private var model = AppModel()
     @AppStorage("themeID") private var themeID = "todoneRed"
@@ -16,6 +27,7 @@ struct TodoneApp: App {
             UserDefaults.standard.set(true, forKey: "didFirstRun")
         }
         _store = State(initialValue: s)
+        AppDelegate.store = s
         NotificationScheduler.shared.attach(store: s)
     }
 

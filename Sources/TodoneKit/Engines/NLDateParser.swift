@@ -42,7 +42,6 @@ public struct NLDateParser {
     /// Parse a date expression from `text`. Returns nil if none found.
     public func parse(_ text: String) -> ParsedNLDate? {
         let ns = text as NSString
-        let lower = ns.lowercased as NSString
 
         var dayDate: Date?
         var dayRange: NSRange?
@@ -52,7 +51,7 @@ public struct NLDateParser {
             // in N days/weeks/months/years
             (#"\bin (\d+) (day|days|week|weeks|month|months|year|years)\b"#, { m, s in
                 guard let n = Int(s.substring(with: m.range(at: 1))) else { return nil }
-                let unit = s.substring(with: m.range(at: 2))
+                let unit = s.substring(with: m.range(at: 2)).lowercased()
                 var comps = DateComponents()
                 if unit.hasPrefix("day") { comps.day = n }
                 else if unit.hasPrefix("week") { comps.day = n * 7 }
@@ -62,7 +61,7 @@ public struct NLDateParser {
             }),
             // month-name day [, year]  e.g. "jul 30", "july 30 2027"
             (#"\b(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\.? (\d{1,2})(?:st|nd|rd|th)?(?:,? (\d{4}))?\b"#, { m, s in
-                guard let month = Self.monthNames[s.substring(with: m.range(at: 1))],
+                guard let month = Self.monthNames[s.substring(with: m.range(at: 1)).lowercased()],
                       let day = Int(s.substring(with: m.range(at: 2))) else { return nil }
                 let year = m.range(at: 3).location != NSNotFound ? Int(s.substring(with: m.range(at: 3))) : nil
                 return self.dateFor(month: month, day: day, year: year)
@@ -70,7 +69,7 @@ public struct NLDateParser {
             // day month-name [year]  e.g. "30 jul"
             (#"\b(\d{1,2})(?:st|nd|rd|th)? (jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\.?(?: (\d{4}))?\b"#, { m, s in
                 guard let day = Int(s.substring(with: m.range(at: 1))),
-                      let month = Self.monthNames[s.substring(with: m.range(at: 2))] else { return nil }
+                      let month = Self.monthNames[s.substring(with: m.range(at: 2)).lowercased()] else { return nil }
                 let year = m.range(at: 3).location != NSNotFound ? Int(s.substring(with: m.range(at: 3))) : nil
                 return self.dateFor(month: month, day: day, year: year)
             }),
@@ -88,7 +87,7 @@ public struct NLDateParser {
             }),
             // next weekday
             (#"\bnext (sun|sunday|mon|monday|tue|tues|tuesday|wed|weds|wednesday|thu|thur|thurs|thursday|fri|friday|sat|saturday)\b"#, { m, s in
-                guard let wd = Self.weekdayNames[s.substring(with: m.range(at: 1))] else { return nil }
+                guard let wd = Self.weekdayNames[s.substring(with: m.range(at: 1)).lowercased()] else { return nil }
                 return self.next(weekday: wd, after: self.startOfToday)
             }),
             // next week / next month / next year
@@ -110,18 +109,19 @@ public struct NLDateParser {
                 self.calendar.date(byAdding: .day, value: -1, to: self.startOfToday)
             }),
             (#"\btonight\b"#, { _, _ in self.startOfToday }),
-            // bare weekday
-            (#"\b(sun|sunday|mon|monday|tue|tues|tuesday|wed|weds|wednesday|thu|thur|thurs|thursday|fri|friday|sat|saturday)\b"#, { m, s in
-                guard let wd = Self.weekdayNames[s.substring(with: m.range(at: 1))] else { return nil }
+            // bare weekday — "sat"/"sun" abbreviations excluded: they are common
+            // English words ("we sat down"); full names or "next sat" still work.
+            (#"\b(sunday|mon|monday|tue|tues|tuesday|wed|weds|wednesday|thu|thur|thurs|thursday|fri|friday|saturday)\b"#, { m, s in
+                guard let wd = Self.weekdayNames[s.substring(with: m.range(at: 1)).lowercased()] else { return nil }
                 return self.next(weekday: wd, after: self.startOfToday)
             }),
         ]
 
         for (pattern, builder) in dayPatterns {
-            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
-            let matches = regex.matches(in: lower as String, range: NSRange(location: 0, length: lower.length))
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
+            let matches = regex.matches(in: ns as String, range: NSRange(location: 0, length: ns.length))
             for m in matches {
-                if let d = builder(m, lower) {
+                if let d = builder(m, ns) {
                     dayDate = d
                     dayRange = m.range
                     break
@@ -140,7 +140,7 @@ public struct NLDateParser {
                       h <= 23, min <= 59 else { return nil }
                 var hour = h
                 if m.range(at: 3).location != NSNotFound {
-                    let ap = s.substring(with: m.range(at: 3))
+                    let ap = s.substring(with: m.range(at: 3)).lowercased()
                     guard h >= 1, h <= 12 else { return nil }
                     if ap == "pm", h != 12 { hour = h + 12 }
                     if ap == "am", h == 12 { hour = 0 }
@@ -150,27 +150,22 @@ public struct NLDateParser {
             }),
             (#"\b(?:at )?(\d{1,2}) ?(am|pm)\b"#, { m, s in
                 guard let h = Int(s.substring(with: m.range(at: 1))), h >= 1, h <= 12 else { return nil }
-                let ap = s.substring(with: m.range(at: 2))
+                let ap = s.substring(with: m.range(at: 2)).lowercased()
                 var hour = h
                 if ap == "pm", h != 12 { hour = h + 12 }
                 if ap == "am", h == 12 { hour = 0 }
                 var c = DateComponents(); c.hour = hour; c.minute = 0
                 return c
             }),
-            (#"\bat (\d{1,2})\b"#, { m, s in
-                guard let h = Int(s.substring(with: m.range(at: 1))), h <= 23 else { return nil }
-                var c = DateComponents(); c.hour = h; c.minute = 0
-                return c
-            }),
         ]
 
         for (pattern, builder) in timePatterns {
-            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
-            let matches = regex.matches(in: lower as String, range: NSRange(location: 0, length: lower.length))
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
+            let matches = regex.matches(in: ns as String, range: NSRange(location: 0, length: ns.length))
             for m in matches {
                 // Skip if this time match overlaps the day-date match (e.g. "7/30").
                 if let dr = dayRange, NSIntersectionRange(dr, m.range).length > 0 { continue }
-                if let c = builder(m, lower) {
+                if let c = builder(m, ns) {
                     timeComps = c
                     timeRange = m.range
                     break
@@ -180,7 +175,7 @@ public struct NLDateParser {
         }
 
         // "tonight" implies 8 PM if no explicit time.
-        if let dr = dayRange, lower.substring(with: dr) == "tonight", timeComps == nil {
+        if let dr = dayRange, ns.substring(with: dr).lowercased() == "tonight", timeComps == nil {
             var c = DateComponents(); c.hour = 20; c.minute = 0
             timeComps = c
             timeRange = nil
@@ -231,22 +226,34 @@ public struct NLDateParser {
     }
 
     /// Date for month/day; picks this year if the date is today or later, else next year.
-    /// An explicit year overrides.
+    /// An explicit year overrides. Rejects impossible dates (Feb 30) instead of
+    /// letting the calendar roll them into the next month.
     func dateFor(month: Int, day: Int, year: Int?) -> Date? {
         var comps = DateComponents()
         comps.month = month
         comps.day = day
         if let y = year {
             comps.year = y
-            return calendar.date(from: comps)
+            return validated(calendar.date(from: comps), month: month, day: day)
         }
         let currentYear = calendar.component(.year, from: now)
         comps.year = currentYear
-        guard let candidate = calendar.date(from: comps) else { return nil }
+        guard let candidate = validated(calendar.date(from: comps), month: month, day: day) else {
+            return nil
+        }
         if candidate < startOfToday {
             comps.year = currentYear + 1
-            return calendar.date(from: comps)
+            return validated(calendar.date(from: comps), month: month, day: day)
         }
         return candidate
+    }
+
+    /// Nil unless the built date actually landed on the requested month/day
+    /// (Calendar.date(from:) silently rolls "Feb 30" into March).
+    private func validated(_ date: Date?, month: Int, day: Int) -> Date? {
+        guard let date else { return nil }
+        let c = calendar.dateComponents([.month, .day], from: date)
+        guard c.month == month, c.day == day else { return nil }
+        return date
     }
 }
