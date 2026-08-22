@@ -19,10 +19,12 @@ struct QuickAddView: View {
                 .font(.title3)
                 .focused($focused)
                 .onSubmit(submit)
+                .onExitCommand { dismiss() }
 
             TextField("Description", text: $description)
                 .textFieldStyle(.plain)
                 .foregroundStyle(.secondary)
+                .onExitCommand { dismiss() }
 
             QuickAddTokenPreview(text: text)
 

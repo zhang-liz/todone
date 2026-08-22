@@ -13,6 +13,20 @@ final class KeyMonitor {
     func start(store: AppStore, model: AppModel) {
         guard monitor == nil else { return }
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            // Escape closes the quick-add/search sheets even while a text field
+            // has focus — the field editor otherwise swallows the key and
+            // .onExitCommand/.keyboardShortcut(.escape) never fire.
+            if event.keyCode == 53 || event.charactersIgnoringModifiers == "\u{1B}" { // Escape (hardware or synthetic)
+                if model.showQuickAdd {
+                    model.showQuickAdd = false
+                    return nil
+                }
+                if model.showSearch {
+                    model.showSearch = false
+                    return nil
+                }
+                return event
+            }
             // Don't steal keys from text editing or when modifiers are held.
             if event.modifierFlags.intersection([.command, .option, .control]).isEmpty == false {
                 return event
