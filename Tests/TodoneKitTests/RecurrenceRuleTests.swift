@@ -113,4 +113,30 @@ import Testing
         let (rule, _) = try #require(RecurrenceRule.parse(from: "every year"))
         #expect(rule.nextOccurrence(after: day(2026, 7, 22), calendar: cal) == day(2027, 7, 22))
     }
+
+    // "on the 32nd" used to be consumed as a valid token and silently degrade to
+    // a plain "every month", losing the day the user asked for.
+    @Test func outOfRangeMonthDayIsNotConsumed() {
+        #expect(RecurrenceRule.parse(from: "every month on the 32nd") == nil)
+        #expect(RecurrenceRule.parse(from: "every month on the 0th") == nil)
+    }
+
+    @Test func validMonthDayBoundariesStillParse() throws {
+        let (first, _) = try #require(RecurrenceRule.parse(from: "every month on the 1st"))
+        #expect(first.monthDay == 1)
+        let (last, _) = try #require(RecurrenceRule.parse(from: "every month on the 31st"))
+        #expect(last.monthDay == 31)
+    }
+
+    @Test func monthlyAnchorKeepsSeconds() throws {
+        let (rule, _) = try #require(RecurrenceRule.parse(from: "every month on the 15th"))
+        let base = cal.date(from: DateComponents(year: 2026, month: 1, day: 15,
+                                                 hour: 9, minute: 30, second: 45))!
+        let next = try #require(rule.nextOccurrence(after: base, calendar: cal))
+        #expect(cal.component(.second, from: next) == 45)
+        #expect(cal.component(.minute, from: next) == 30)
+        #expect(cal.component(.hour, from: next) == 9)
+        #expect(cal.component(.day, from: next) == 15)
+        #expect(cal.component(.month, from: next) == 2)
+    }
 }

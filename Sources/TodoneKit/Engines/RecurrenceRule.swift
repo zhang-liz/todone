@@ -75,11 +75,15 @@ public struct RecurrenceRule: Equatable {
         if let regex = try? NSRegularExpression(pattern: #"\bevery(!?) month on the (\d{1,2})(?:st|nd|rd|th)?\b"#, options: [.caseInsensitive]),
            let m = regex.firstMatch(in: lower as String, range: full) {
             let strict = lower.substring(with: m.range(at: 1)) == "!"
-            if let day = Int(lower.substring(with: m.range(at: 2))), day >= 1, day <= 31 {
-                let rule = RecurrenceRule(interval: 1, unit: .month, monthDay: day, strict: strict,
-                                          displayText: "every\(strict ? "!" : "") month on the \(day)\(Self.ordinalSuffix(day))")
-                return (rule, m.range)
+            guard let day = Int(lower.substring(with: m.range(at: 2))), day >= 1, day <= 31 else {
+                // "on the 32nd" is not a recurrence. Returning nil rather than
+                // falling through stops the generic branch from matching the
+                // "every month" prefix and silently dropping the requested day.
+                return nil
             }
+            let rule = RecurrenceRule(interval: 1, unit: .month, monthDay: day, strict: strict,
+                                      displayText: "every\(strict ? "!" : "") month on the \(day)\(Self.ordinalSuffix(day))")
+            return (rule, m.range)
         }
 
         // every [!] [N] day(s)/week(s)/month(s)/year(s), every morning/evening/night
@@ -160,7 +164,9 @@ public struct RecurrenceRule: Equatable {
                 anchor = 31
             }
             if let day = anchor {
-                var comps = calendar.dateComponents([.year, .month, .hour, .minute], from: added)
+                // Seconds included so this path matches the plain monthly one,
+                // which returns `added` with its time untouched.
+                var comps = calendar.dateComponents([.year, .month, .hour, .minute, .second], from: added)
                 let range = calendar.range(of: .day, in: .month,
                                            for: calendar.date(from: DateComponents(year: comps.year, month: comps.month, day: 1)) ?? added)
                 comps.day = min(day, range?.count ?? 28)
