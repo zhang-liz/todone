@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      # macos-15 ships several Xcodes and the default is not always Swift 6.
+      # Pick the newest installed Xcode, then prove it satisfies Package.swift.
+      - name: Select a Swift 6 toolchain
+        run: |
+          NEWEST="$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          echo "Using $NEWEST"
+          sudo xcode-select -s "$NEWEST"
+          swift --version
+          MAJOR="$(swift -version 2>&1 | sed -n 's/.*Swift version \([0-9]*\).*/\1/p' | head -1)"
+          if [ "${MAJOR:-0}" -lt 6 ]; then
+            echo "Need Swift 6 or later, found $MAJOR" >&2
+            exit 1
+          fi
+
+      - name: Run tests
+        run: swift test
