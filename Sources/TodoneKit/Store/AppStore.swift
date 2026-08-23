@@ -368,8 +368,17 @@ public final class AppStore {
         let pid = projectID ?? inbox.id
         let siblings = tasks.filter { $0.projectID == pid && $0.sectionID == sectionID && $0.parentID == parentID }
         let order = (siblings.map(\.sortOrder).max() ?? 0) + 1
+        // Remember the day a plain monthly series starts on, so a later clamp
+        // into a short month can't turn it into an end-of-month series.
+        var anchorDay: Int?
+        if let due = dueDate, let text = recurrence,
+           let rule = RecurrenceRule.deserialize(text),
+           rule.unit == .month, rule.monthDay == nil {
+            anchorDay = calendar.component(.day, from: due)
+        }
         let task = TodoTask(title: title, details: details, priority: priority,
                             dueDate: dueDate, hasDueTime: hasDueTime, recurrence: recurrence,
+                            recurrenceAnchorDay: anchorDay,
                             sortOrder: order, projectID: pid, sectionID: sectionID,
                             parentID: parentID, labelIDs: labelIDs)
         tasks.append(task)
@@ -428,12 +437,20 @@ public final class AppStore {
         if let text = task.recurrence, let rule = RecurrenceRule.deserialize(text),
            let due = task.dueDate {
             let base = rule.strict ? Self.carryTime(from: due, onto: now, calendar: calendar) : due
-            if var next = rule.nextOccurrence(after: base, calendar: calendar) {
+            // Anchor the series to the day it started on, so a monthly rule keeps
+            // its day-of-month instead of drifting to month-end once a short
+            // month clamps it. Tasks saved before this field existed adopt their
+            // current day the first time they advance.
+            let anchorDay = task.recurrenceAnchorDay ?? calendar.component(.day, from: base)
+            if task.recurrenceAnchorDay == nil, rule.unit == .month, rule.monthDay == nil {
+                task.recurrenceAnchorDay = anchorDay
+            }
+            if var next = rule.nextOccurrence(after: base, calendar: calendar, anchorDay: anchorDay) {
                 // Overdue recurring task: skip already-passed occurrences so one
                 // completion catches up instead of staying overdue.
                 var guardCounter = 0
                 while isPast(next, now: now, hasTime: task.hasDueTime), guardCounter < 1000,
-                      let following = rule.nextOccurrence(after: next, calendar: calendar) {
+                      let following = rule.nextOccurrence(after: next, calendar: calendar, anchorDay: anchorDay) {
                     next = following
                     guardCounter += 1
                 }

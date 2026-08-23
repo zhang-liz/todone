@@ -124,7 +124,15 @@ public struct RecurrenceRule: Equatable {
     /// Compute the next due date. `base` is the previous due date for plain
     /// rules, or the completion date for strict ("every!") rules — the caller
     /// picks. Time-of-day of `base` is preserved.
-    public func nextOccurrence(after base: Date, calendar: Calendar = .current) -> Date? {
+    /// Next due date after `base`.
+    ///
+    /// `anchorDay` is the day-of-month the series was started on. Pass it when
+    /// advancing a chain of occurrences: a monthly date that reached month-end
+    /// by clamping (the 30th landing on Feb 28) is indistinguishable from a
+    /// deliberate end-of-month date when judged from `base` alone, so without it
+    /// the series migrates to the last day of every month and never returns.
+    public func nextOccurrence(after base: Date, calendar: Calendar = .current,
+                               anchorDay: Int? = nil) -> Date? {
         switch unit {
         case .day:
             return calendar.date(byAdding: .day, value: interval, to: base)
@@ -145,7 +153,7 @@ public struct RecurrenceRule: Equatable {
             // Anchor day: explicit "on the Nth", or — for plain "every month" —
             // treat a base on the last day of its month as an end-of-month
             // anchor so Jan 31 → Feb 28 → Mar 31 instead of drifting to the 28th.
-            var anchor = monthDay
+            var anchor = monthDay ?? anchorDay
             if anchor == nil,
                let baseRange = calendar.range(of: .day, in: .month, for: base),
                calendar.component(.day, from: base) == baseRange.count {

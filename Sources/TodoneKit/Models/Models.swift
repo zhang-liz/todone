@@ -173,6 +173,12 @@ public final class TodoTask: Identifiable, Codable {
     public var hasDueTime: Bool
     /// Serialized RecurrenceRule, nil when not recurring.
     public var recurrence: String?
+    /// Day-of-month the monthly series was started on. Kept because a date that
+    /// clamped into a short month (the 30th landing on Feb 28) is otherwise
+    /// indistinguishable from a deliberate month-end date, which made the series
+    /// migrate to the last day of every month. nil for tasks saved before this
+    /// existed and for rules where it does not apply.
+    public var recurrenceAnchorDay: Int?
     public var sortOrder: Double
     public var completedAt: Date?
     public var createdAt: Date
@@ -185,7 +191,8 @@ public final class TodoTask: Identifiable, Codable {
 
     public init(id: UUID = UUID(), title: String, details: String = "",
                 priority: Priority = .p4, dueDate: Date? = nil, hasDueTime: Bool = false,
-                recurrence: String? = nil, sortOrder: Double = 0, completedAt: Date? = nil,
+                recurrence: String? = nil, recurrenceAnchorDay: Int? = nil,
+                sortOrder: Double = 0, completedAt: Date? = nil,
                 createdAt: Date = Date(), projectID: UUID, sectionID: UUID? = nil,
                 parentID: UUID? = nil, labelIDs: [UUID] = []) {
         self.id = id
@@ -195,6 +202,7 @@ public final class TodoTask: Identifiable, Codable {
         self.dueDate = dueDate
         self.hasDueTime = hasDueTime
         self.recurrence = recurrence
+        self.recurrenceAnchorDay = recurrenceAnchorDay
         self.sortOrder = sortOrder
         self.completedAt = completedAt
         self.createdAt = createdAt
@@ -205,7 +213,8 @@ public final class TodoTask: Identifiable, Codable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, title, details, priority, dueDate, hasDueTime, recurrence, sortOrder,
+        case id, title, details, priority, dueDate, hasDueTime, recurrence,
+             recurrenceAnchorDay, sortOrder,
              completedAt, createdAt, projectID, sectionID, parentID, labelIDs
     }
 
@@ -219,6 +228,7 @@ public final class TodoTask: Identifiable, Codable {
             dueDate: try c.decodeIfPresent(Date.self, forKey: .dueDate),
             hasDueTime: try c.decode(Bool.self, forKey: .hasDueTime),
             recurrence: try c.decodeIfPresent(String.self, forKey: .recurrence),
+            recurrenceAnchorDay: try c.decodeIfPresent(Int.self, forKey: .recurrenceAnchorDay),
             sortOrder: try c.decode(Double.self, forKey: .sortOrder),
             completedAt: try c.decodeIfPresent(Date.self, forKey: .completedAt),
             createdAt: try c.decode(Date.self, forKey: .createdAt),
@@ -238,6 +248,7 @@ public final class TodoTask: Identifiable, Codable {
         try c.encodeIfPresent(dueDate, forKey: .dueDate)
         try c.encode(hasDueTime, forKey: .hasDueTime)
         try c.encodeIfPresent(recurrence, forKey: .recurrence)
+        try c.encodeIfPresent(recurrenceAnchorDay, forKey: .recurrenceAnchorDay)
         try c.encode(sortOrder, forKey: .sortOrder)
         try c.encodeIfPresent(completedAt, forKey: .completedAt)
         try c.encode(createdAt, forKey: .createdAt)

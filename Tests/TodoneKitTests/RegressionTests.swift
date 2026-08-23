@@ -138,6 +138,47 @@ import Testing
         #expect(next == day(2026, 8, 15))
     }
 
+    // A monthly date that clamps to month-end is indistinguishable from a
+    // deliberate month-end date when judged from the base alone, so completing
+    // a task on the 30th used to migrate it to the 31st permanently.
+    @Test func monthlyOn30thDoesNotDriftToMonthEnd() throws {
+        let (rule, _) = try #require(RecurrenceRule.parse(from: "every month"))
+
+        let feb = try #require(rule.nextOccurrence(after: day(2027, 1, 30), calendar: cal, anchorDay: 30))
+        #expect(feb == day(2027, 2, 28))  // clamped, February is short
+
+        let mar = try #require(rule.nextOccurrence(after: feb, calendar: cal, anchorDay: 30))
+        #expect(mar == day(2027, 3, 30))  // back to the 30th, not the 31st
+    }
+
+    @Test func completingMonthlyTaskKeepsItsDayOfMonth() throws {
+        let s = makeStore()
+        let t = s.addTask(title: "rent", dueDate: day(2027, 1, 30), recurrence: "every month")
+
+        s.complete(t, now: day(2027, 1, 30, 12))
+        #expect(t.dueDate == day(2027, 2, 28))  // clamped into February
+
+        s.complete(t, now: day(2027, 2, 28, 12))
+        #expect(t.dueDate == day(2027, 3, 28))  // stays on the clamped day, no month-end jump
+    }
+
+    @Test func leapDayMonthlyDoesNotJumpToMonthEnd() throws {
+        let (rule, _) = try #require(RecurrenceRule.parse(from: "every month"))
+        let next = try #require(rule.nextOccurrence(after: day(2028, 2, 29), calendar: cal, anchorDay: 29))
+        #expect(next == day(2028, 3, 29))
+    }
+
+    @Test func genuineMonthEndSeriesStillTracksMonthEnd() throws {
+        let s = makeStore()
+        let t = s.addTask(title: "invoice", dueDate: day(2027, 1, 31), recurrence: "every month")
+
+        s.complete(t, now: day(2027, 1, 31, 12))
+        #expect(t.dueDate == day(2027, 2, 28))
+
+        s.complete(t, now: day(2027, 2, 28, 12))
+        #expect(t.dueDate == day(2027, 3, 31))  // 31st anchor survives the short month
+    }
+
     // MARK: Corrupt store handling
 
     @Test func corruptStoreIsBackedUpNotDiscarded() throws {
