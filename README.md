@@ -6,7 +6,7 @@ sync, so your data stays in `~/Library/Application Support/Todone/todone.json`.
 
 [![Download for macOS](https://img.shields.io/badge/Download%20for%20macOS-.dmg-0A84FF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/zhang-liz/todone/releases/latest)
 
-![status](https://img.shields.io/badge/tests-171%20passing-brightgreen)
+![status](https://img.shields.io/badge/tests-186%20passing-brightgreen)
 [![release](https://img.shields.io/github/v/release/zhang-liz/todone?display_name=tag)](https://github.com/zhang-liz/todone/releases/latest)
 
 ## Features
@@ -28,6 +28,7 @@ sync, so your data stays in `~/Library/Application Support/Todone/todone.json`.
 - **Search** — ⌘K command palette over tasks and projects
 - **Karma** — points, levels (Beginner → Enlightened), daily/weekly goals,
   streaks, vacation mode, 4-week completion chart
+- **Undo** — ⌘Z reverses any change, 50 steps deep, ⇧⌘Z redoes
 - **Activity log** — grouped by day, filterable by event type
 - **Notifications** — reminders at/before due time, dock badge with today count
 - **Themes** — 10 accent themes, light/dark/system
@@ -60,7 +61,7 @@ cp -r build/Todone.app /Applications/
 ## Development
 
 ```bash
-swift test              # 171 tests
+swift test              # 186 tests
 Scripts/build-app.sh    # build -> build/Todone.app
 open build/Todone.app
 ```
