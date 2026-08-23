@@ -77,7 +77,10 @@ struct AppCommands: Commands {
     let model: AppModel
 
     var body: some Commands {
-        CommandGroup(after: .newItem) {
+        // Replaces rather than follows .newItem: WindowGroup synthesises a
+        // "New Window" item that also claims ⌘N, and macOS gives the shortcut
+        // to whichever comes first, leaving Add Task unreachable.
+        CommandGroup(replacing: .newItem) {
             Button("Add Task") { model.showQuickAdd = true }
                 .keyboardShortcut("n", modifiers: .command)
             Button("Search") { model.showSearch = true }
