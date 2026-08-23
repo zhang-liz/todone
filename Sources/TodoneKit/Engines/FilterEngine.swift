@@ -170,6 +170,10 @@ public enum FilterEngine {
         /// than showing the filter as invalid.
         static let maxDepth = 100
 
+        /// Upper bound for "N days". Beyond a few centuries the date arithmetic
+        /// overflows and the filter silently matches nothing.
+        static let maxDayCount = 36_500
+
         let scanner: NSString
         var pos: Int = 0
         var depth: Int = 0
@@ -310,11 +314,40 @@ public enum FilterEngine {
             return trimmed
         }
 
+        /// Search text. A quoted string is taken literally, so a phrase may
+        /// contain `& | ( )` which would otherwise end the argument.
+        mutating func readSearchArgument() throws -> String {
+            skipWhitespace()
+            guard pos < scanner.length else { throw FilterParseError("Expected a value") }
+            if scanner.character(at: pos) == u("\"") {
+                pos += 1
+                let start = pos
+                while pos < scanner.length, scanner.character(at: pos) != u("\"") {
+                    pos += 1
+                }
+                guard pos < scanner.length else { throw FilterParseError("Unterminated quote") }
+                let out = scanner.substring(with: NSRange(location: start, length: pos - start))
+                pos += 1
+                guard !out.isEmpty else { throw FilterParseError("Expected a value") }
+                return out
+            }
+            return try readArgument()
+        }
+
         mutating func parseDateArgument() throws -> Date {
+            skipWhitespace()
+            let argumentStart = pos
             let text = try readArgument()
             let parser = NLDateParser(calendar: calendar, now: now)
             guard let parsed = parser.parse(text) else {
                 throw FilterParseError("Can't understand date \"\(text)\"")
+            }
+            // readArgument runs to the next & | ( ), so "date before: aug 1 p1"
+            // hands the whole tail to the date parser, which uses "aug 1" and
+            // drops "p1". Rewind to the end of what the date actually consumed
+            // so the remaining terms get parsed instead of silently discarded.
+            if let consumedEnd = parsed.ranges.map({ $0.location + $0.length }).max() {
+                pos = argumentStart + consumedEnd
             }
             return parsed.date
         }
@@ -341,16 +374,23 @@ public enum FilterEngine {
             if consume("due:") { return .dateOn(try parseDateArgument()) }
             if consume("created before:") { return .createdBefore(try parseDateArgument()) }
             if consume("created after:") { return .createdAfter(try parseDateArgument()) }
-            if consume("search:") { return .search(try readArgument()) }
+            if consume("search:") { return .search(try readSearchArgument()) }
 
             // N days
             do {
                 let saved = pos
                 skipWhitespace()
                 let rest = scanner.substring(from: pos)
-                if let regex = try? NSRegularExpression(pattern: #"^(\d+) days?\b"#),
-                   let m = regex.firstMatch(in: rest, range: NSRange(location: 0, length: (rest as NSString).length)),
-                   let n = Int((rest as NSString).substring(with: m.range(at: 1))) {
+                // Case-insensitive and tolerant of extra spacing, like every
+                // other keyword in the grammar.
+                if let regex = try? NSRegularExpression(pattern: #"^(\d+)\s+days?\b"#, options: [.caseInsensitive]),
+                   let m = regex.firstMatch(in: rest, range: NSRange(location: 0, length: (rest as NSString).length)) {
+                    let digits = (rest as NSString).substring(with: m.range(at: 1))
+                    // Bound the count: Calendar.date(byAdding:) overflows on huge
+                    // values and silently yields a window matching nothing.
+                    guard let n = Int(digits), n <= Self.maxDayCount else {
+                        throw FilterParseError("Day count is too large: \(digits)")
+                    }
                     pos += m.range.length
                     return .nextNDays(n)
                 }
