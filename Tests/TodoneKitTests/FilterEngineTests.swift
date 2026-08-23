@@ -157,4 +157,23 @@ import Testing
         let r = try matches("#\"Big Plans\"")
         #expect(r.map(\.title) == ["inside"])
     }
+
+    // Names are read code unit by code unit, so an emoji — two UTF-16 units —
+    // used to be sliced in half and arrive as replacement characters.
+    @Test func emojiProjectName() throws {
+        let party = store.addProject(name: "Welcome 👋")
+        store.addTask(title: "inside", projectID: party.id)
+        store.addTask(title: "outside", projectID: work.id)
+
+        #expect(try matches("#\"Welcome 👋\"").map(\.title) == ["inside"])
+    }
+
+    @Test func emojiLabelAndSearch() throws {
+        let tag = store.addLabel(name: "🎉party")
+        store.addTask(title: "tagged", projectID: work.id, labelIDs: [tag.id])
+        store.addTask(title: "🎉 celebrate", projectID: work.id)
+
+        #expect(try matches("@🎉party").map(\.title) == ["tagged"])
+        #expect(try matches("search: 🎉").map(\.title) == ["🎉 celebrate"])
+    }
 }

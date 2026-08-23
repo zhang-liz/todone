@@ -262,23 +262,23 @@ public enum FilterEngine {
             guard pos < scanner.length else { throw FilterParseError("Expected a name") }
             if scanner.character(at: pos) == u("\"") {
                 pos += 1
-                var out = ""
+                let start = pos
                 while pos < scanner.length, scanner.character(at: pos) != u("\"") {
-                    out += scanner.substring(with: NSRange(location: pos, length: 1))
                     pos += 1
                 }
                 guard pos < scanner.length else { throw FilterParseError("Unterminated quote") }
+                let out = scanner.substring(with: NSRange(location: start, length: pos - start))
                 pos += 1
                 return out
             }
-            var out = ""
             let delimiters: Set<unichar> = [u("&"), u("|"),
                                             u("("), u(")"),
                                             u(" ")]
+            let start = pos
             while pos < scanner.length, !delimiters.contains(scanner.character(at: pos)) {
-                out += scanner.substring(with: NSRange(location: pos, length: 1))
                 pos += 1
             }
+            let out = scanner.substring(with: NSRange(location: start, length: pos - start))
             guard !out.isEmpty else { throw FilterParseError("Expected a name") }
             return out
         }
@@ -286,13 +286,13 @@ public enum FilterEngine {
         /// Read text up to the next top-level delimiter (& | ( )) — for date args.
         mutating func readArgument() throws -> String {
             skipWhitespace()
-            var out = ""
             let delimiters: Set<unichar> = [u("&"), u("|"),
                                             u("("), u(")")]
+            let start = pos
             while pos < scanner.length, !delimiters.contains(scanner.character(at: pos)) {
-                out += scanner.substring(with: NSRange(location: pos, length: 1))
                 pos += 1
             }
+            let out = scanner.substring(with: NSRange(location: start, length: pos - start))
             let trimmed = out.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else { throw FilterParseError("Expected a value") }
             return trimmed
