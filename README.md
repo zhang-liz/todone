@@ -4,7 +4,10 @@ A full-featured, native macOS clone of the Todoist Mac app. SwiftUI + an
 observable object graph persisted as a local JSON document. No accounts and no
 sync, so your data stays in `~/Library/Application Support/Todone/todone.json`.
 
+[![Download for macOS](https://img.shields.io/badge/Download%20for%20macOS-.dmg-0A84FF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/zhang-liz/todone/releases/latest)
+
 ![status](https://img.shields.io/badge/tests-141%20passing-brightgreen)
+[![release](https://img.shields.io/github/v/release/zhang-liz/todone?display_name=tag)](https://github.com/zhang-liz/todone/releases/latest)
 
 ## Features
 
@@ -33,15 +36,7 @@ sync, so your data stays in `~/Library/Application Support/Todone/todone.json`.
 
 ## Install
 
-Requires macOS 14 or later and Swift 6. Command Line Tools are enough, so you
-do not need Xcode.
-
-```bash
-git clone https://github.com/zhang-liz/todone.git
-cd todone
-Scripts/build-app.sh
-cp -r build/Todone.app /Applications/
-```
+Open the disk image and drag Todone to Applications. Requires macOS 14 or later.
 
 The app is signed ad-hoc, not notarized, so macOS blocks it the first time you
 open it. To get past that, right-click Todone in Applications, choose **Open**,
@@ -50,6 +45,17 @@ then click **Open** in the dialog. You only do this once.
 Tasks are stored in `~/Library/Application Support/Todone/todone.json`. There
 is no sync, so a fresh install on another Mac starts empty. To bring your tasks
 with you, copy that file across.
+
+### Build from source
+
+Requires Swift 6. Command Line Tools are enough, so you do not need Xcode.
+
+```bash
+git clone https://github.com/zhang-liz/todone.git
+cd todone
+Scripts/build-app.sh
+cp -r build/Todone.app /Applications/
+```
 
 ## Development
 
