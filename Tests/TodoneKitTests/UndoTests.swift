@@ -202,10 +202,10 @@ import Testing
         s.asSingleUndoStep {
             for t in [a, b, c] { s.complete(t, now: now) }
         }
-        #expect(s.tasks.allSatisfy(\.isCompleted))
+        #expect(s.tasks.filter { !$0.isCompleted }.isEmpty)
 
         s.undo()
-        #expect(s.tasks.allSatisfy { !$0.isCompleted })
+        #expect(s.tasks.filter { $0.isCompleted }.isEmpty)
     }
 
     @Test func nestedGroupingStillCollapsesToOneStep() {
