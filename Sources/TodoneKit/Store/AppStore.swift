@@ -470,7 +470,7 @@ public final class AppStore {
         // into a short month can't turn it into an end-of-month series.
         var anchorDay: Int?
         if let due = dueDate, let text = recurrence,
-           let rule = RecurrenceRule.deserialize(text),
+           let rule = RecurrenceRule.deserialize(text, calendar: calendar),
            rule.unit == .month, rule.monthDay == nil {
             anchorDay = calendar.component(.day, from: due)
         }
@@ -534,7 +534,7 @@ public final class AppStore {
     public func complete(_ task: TodoTask, now: Date = Date()) {
         guard !task.isCompleted else { return } // no double-count on double-tap
         checkpoint()
-        if let text = task.recurrence, let rule = RecurrenceRule.deserialize(text),
+        if let text = task.recurrence, let rule = RecurrenceRule.deserialize(text, calendar: calendar),
            let due = task.dueDate {
             let base = rule.strict ? Self.carryTime(from: due, onto: now, calendar: calendar) : due
             // Anchor the series to the day it started on, so a monthly rule keeps

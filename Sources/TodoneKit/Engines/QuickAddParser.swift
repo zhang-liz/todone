@@ -135,7 +135,8 @@ public struct QuickAddParser {
 
         // 3. Recurrence ("every ..."), before plain dates so weekday lists
         //    aren't eaten by the date parser.
-        if let (rule, range) = RecurrenceRule.parse(from: masked), !isDisabled(range) {
+        if let (rule, range) = RecurrenceRule.parse(from: masked, calendar: calendar, now: now),
+           !isDisabled(range) {
             result.recurrence = rule
             claim(range, .recurrence)
         }

@@ -18,16 +18,21 @@ public struct RecurrenceRule: Equatable {
     public var monthDay: Int?
     /// Strict ("every!"): next occurrence computed from the completion date.
     public var strict: Bool
+    /// Last day the series may fire, from "every day until dec 1". The series
+    /// stops rather than repeating forever.
+    public var endDate: Date?
     /// Normalized display text, also the serialized form.
     public var displayText: String
 
     public init(interval: Int = 1, unit: Unit = .day, weekdays: [Int] = [],
-                monthDay: Int? = nil, strict: Bool = false, displayText: String = "") {
+                monthDay: Int? = nil, strict: Bool = false, endDate: Date? = nil,
+                displayText: String = "") {
         self.interval = interval
         self.unit = unit
         self.weekdays = weekdays
         self.monthDay = monthDay
         self.strict = strict
+        self.endDate = endDate
         self.displayText = displayText
     }
 
@@ -35,8 +40,50 @@ public struct RecurrenceRule: Equatable {
 
     /// Parse a recurrence expression out of `text`. Returns the rule and the
     /// UTF-16 range it occupied, or nil if no recurrence found.
-    public static func parse(from text: String) -> (rule: RecurrenceRule, range: NSRange)? {
+    public static func parse(from text: String, calendar: Calendar = .current,
+                             now: Date = Date()) -> (rule: RecurrenceRule, range: NSRange)? {
         let lower = text as NSString  // matched case-insensitively; captures lowercased at use
+        let full = NSRange(location: 0, length: lower.length)
+
+        // A trailing "until <date>" bounds the series. Strip it before matching
+        // the recurrence itself, then hand the combined range back so the caller
+        // removes the whole phrase from the title.
+        var endDate: Date?
+        var untilRange: NSRange?
+        if let regex = try? NSRegularExpression(pattern: #"\s+(?:until|till|til|through)\s+(.+)$"#, options: [.caseInsensitive]),
+           let m = regex.firstMatch(in: text, range: full) {
+            let tail = lower.substring(with: m.range(at: 1))
+            if let parsed = NLDateParser(calendar: calendar, now: now).parse(tail), parsed.hasExplicitDay {
+                endDate = calendar.startOfDay(for: parsed.date)
+                untilRange = m.range
+            }
+        }
+        let searchText = untilRange.map { lower.replacingCharacters(in: $0, with: "") } ?? text
+        let inner = Self.parseCore(from: searchText, calendar: calendar, now: now)
+        guard var result = inner else { return nil }
+        if let endDate, let untilRange {
+            result.rule.endDate = endDate
+            result.rule.displayText += " until " + Self.endDateText(endDate, calendar: calendar)
+            // The recurrence sits before the stripped "until", so its range is
+            // still valid; extend it to cover the phrase we removed.
+            result.range = NSRange(location: result.range.location,
+                                   length: max(result.range.length,
+                                               untilRange.location + untilRange.length - result.range.location))
+        }
+        return result
+    }
+
+    private static func endDateText(_ date: Date, calendar: Calendar) -> String {
+        let f = DateFormatter()
+        f.calendar = calendar
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "MMM d yyyy"
+        return f.string(from: date)
+    }
+
+    private static func parseCore(from text: String, calendar: Calendar,
+                                  now: Date) -> (rule: RecurrenceRule, range: NSRange)? {
+        let lower = text as NSString
         let full = NSRange(location: 0, length: lower.length)
 
         let weekdayAlt = "sun|sunday|mon|monday|tue|tues|tuesday|wed|weds|wednesday|thu|thur|thurs|thursday|fri|friday|sat|saturday"
@@ -71,18 +118,24 @@ public struct RecurrenceRule: Equatable {
             return (rule, m.range)
         }
 
-        // every [!] month on the 15th
-        if let regex = try? NSRegularExpression(pattern: #"\bevery(!?) month on the (\d{1,2})(?:st|nd|rd|th)?\b"#, options: [.caseInsensitive]),
+        // every [!] [N] month(s) on the 15th
+        if let regex = try? NSRegularExpression(pattern: #"\bevery(!?) (?:(\d+) )?months? on the (\d{1,2})(?:st|nd|rd|th)?\b"#, options: [.caseInsensitive]),
            let m = regex.firstMatch(in: lower as String, range: full) {
             let strict = lower.substring(with: m.range(at: 1)) == "!"
-            guard let day = Int(lower.substring(with: m.range(at: 2))), day >= 1, day <= 31 else {
+            var interval = 1
+            if m.range(at: 2).location != NSNotFound,
+               let n = Int(lower.substring(with: m.range(at: 2))) {
+                interval = max(1, n)
+            }
+            guard let day = Int(lower.substring(with: m.range(at: 3))), day >= 1, day <= 31 else {
                 // "on the 32nd" is not a recurrence. Returning nil rather than
                 // falling through stops the generic branch from matching the
                 // "every month" prefix and silently dropping the requested day.
                 return nil
             }
-            let rule = RecurrenceRule(interval: 1, unit: .month, monthDay: day, strict: strict,
-                                      displayText: "every\(strict ? "!" : "") month on the \(day)\(Self.ordinalSuffix(day))")
+            let unitWord = interval == 1 ? "month" : "\(interval) months"
+            let rule = RecurrenceRule(interval: interval, unit: .month, monthDay: day, strict: strict,
+                                      displayText: "every\(strict ? "!" : "") \(unitWord) on the \(day)\(Self.ordinalSuffix(day))")
             return (rule, m.range)
         }
 
@@ -119,8 +172,8 @@ public struct RecurrenceRule: Equatable {
     }
 
     /// Deserialize from the stored display text.
-    public static func deserialize(_ text: String) -> RecurrenceRule? {
-        parse(from: text)?.rule
+    public static func deserialize(_ text: String, calendar: Calendar = .current) -> RecurrenceRule? {
+        parse(from: text, calendar: calendar)?.rule
     }
 
     // MARK: - Next occurrence
@@ -137,6 +190,17 @@ public struct RecurrenceRule: Equatable {
     /// the series migrates to the last day of every month and never returns.
     public func nextOccurrence(after base: Date, calendar: Calendar = .current,
                                anchorDay: Int? = nil) -> Date? {
+        guard let next = occurrenceIgnoringEndDate(after: base, calendar: calendar,
+                                                   anchorDay: anchorDay) else { return nil }
+        // A bounded series ends rather than running on forever.
+        if let endDate, calendar.startOfDay(for: next) > calendar.startOfDay(for: endDate) {
+            return nil
+        }
+        return next
+    }
+
+    private func occurrenceIgnoringEndDate(after base: Date, calendar: Calendar,
+                                          anchorDay: Int?) -> Date? {
         switch unit {
         case .day:
             return calendar.date(byAdding: .day, value: interval, to: base)

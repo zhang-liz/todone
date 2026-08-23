@@ -4,11 +4,13 @@ import Testing
 
 @Suite struct RecurrenceRuleTests {
     let cal: Calendar
+    let now: Date
 
     init() {
         var c = Calendar(identifier: .gregorian)
         c.timeZone = TimeZone(identifier: "America/Los_Angeles")!
         cal = c
+        now = c.date(from: DateComponents(year: 2026, month: 7, day: 22, hour: 10))!
     }
 
     func day(_ y: Int, _ m: Int, _ d: Int, _ h: Int = 0, _ min: Int = 0) -> Date {
@@ -138,5 +140,59 @@ import Testing
         #expect(cal.component(.hour, from: next) == 9)
         #expect(cal.component(.day, from: next) == 15)
         #expect(cal.component(.month, from: next) == 2)
+    }
+
+    // The month-day pattern hardcoded "month", so an interval fell through to
+    // the generic branch and the requested day was silently dropped.
+    @Test func intervalMonthlyOnADayKeepsBoth() throws {
+        let (rule, _) = try #require(RecurrenceRule.parse(from: "every 2 months on the 3rd", calendar: cal))
+        #expect(rule.interval == 2)
+        #expect(rule.unit == .month)
+        #expect(rule.monthDay == 3)
+
+        let next = try #require(rule.nextOccurrence(after: day(2026, 1, 3), calendar: cal))
+        #expect(next == day(2026, 3, 3))
+    }
+
+    @Test func plainMonthlyOnADayStillParses() throws {
+        let (rule, _) = try #require(RecurrenceRule.parse(from: "every month on the 15th", calendar: cal))
+        #expect(rule.interval == 1)
+        #expect(rule.monthDay == 15)
+        #expect(rule.displayText == "every month on the 15th")
+    }
+
+    // MARK: End dates
+
+    @Test func untilClauseBoundsTheSeries() throws {
+        let (rule, _) = try #require(RecurrenceRule.parse(from: "every day until dec 1", calendar: cal, now: now))
+        #expect(rule.unit == .day)
+        #expect(rule.endDate == day(2026, 12, 1))
+
+        // Inside the window it advances as usual.
+        #expect(rule.nextOccurrence(after: day(2026, 11, 29), calendar: cal) == day(2026, 11, 30))
+        // The last day itself is allowed.
+        #expect(rule.nextOccurrence(after: day(2026, 11, 30), calendar: cal) == day(2026, 12, 1))
+        // Past it, the series is over.
+        #expect(rule.nextOccurrence(after: day(2026, 12, 1), calendar: cal) == nil)
+    }
+
+    @Test func untilSurvivesSerializationRoundTrip() throws {
+        let (rule, _) = try #require(RecurrenceRule.parse(from: "every week until dec 1", calendar: cal, now: now))
+        let restored = try #require(RecurrenceRule.deserialize(rule.displayText, calendar: cal))
+        #expect(restored.endDate == rule.endDate)
+        #expect(restored.unit == .week)
+    }
+
+    @Test func unparseableUntilTailIsLeftAlone() throws {
+        // "until further notice" is not a date; the recurrence still parses and
+        // the phrase stays in the title rather than becoming a bogus end date.
+        let (rule, _) = try #require(RecurrenceRule.parse(from: "every day until further notice", calendar: cal, now: now))
+        #expect(rule.endDate == nil)
+        #expect(rule.unit == .day)
+    }
+
+    @Test func recurrenceWithoutUntilHasNoEndDate() throws {
+        let (rule, _) = try #require(RecurrenceRule.parse(from: "every 3 days", calendar: cal))
+        #expect(rule.endDate == nil)
     }
 }
