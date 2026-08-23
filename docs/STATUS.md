@@ -4,7 +4,7 @@ Last updated: 2026-08-22. Tracks the [design spec](superpowers/specs/2026-07-22-
 
 ## Summary
 
-All 8 milestones are implemented. 141 tests pass. The app builds and runs from a clean clone.
+All 8 milestones are implemented. 166 tests pass. The app builds and runs from a clean clone.
 
 Two deliberate changes from the spec, both listed under [Deviations](#deviations-from-the-spec): persistence uses JSON instead of SwiftData, and there are no UI tests.
 
@@ -23,7 +23,7 @@ Two deliberate changes from the spec, both listed under [Deviations](#deviations
 
 ## Tests
 
-141 tests, all passing. Run with `swift test`.
+166 tests, all passing. Run with `swift test`.
 
 | Suite | Tests | Covers |
 |---|---|---|
@@ -40,7 +40,7 @@ Two deliberate changes from the spec, both listed under [Deviations](#deviations
 
 **JSON instead of SwiftData.** The spec called for SwiftData. The app stores everything in one JSON file at `~/Library/Application Support/Todone/todone.json`, written atomically and debounced. This removed the SwiftData maturity risk the spec flagged, and it keeps the engines testable without a database. A corrupt store is backed up rather than discarded (`RegressionTests.corruptStoreIsBackedUpNotDiscarded`).
 
-**No UI tests.** The spec planned XCUITest smoke tests. There are none. The project builds through SwiftPM rather than an Xcode project, which XCUITest requires. Engine and store logic is covered by the 141 unit tests; view code is not covered.
+**No UI tests.** The spec planned XCUITest smoke tests. There are none. The project builds through SwiftPM rather than an Xcode project, which XCUITest requires. Engine and store logic is covered by the 166 unit tests; view code is not covered.
 
 **SwiftPM, not an Xcode project.** `Scripts/build-app.sh` assembles the `.app` bundle from the SwiftPM binary. Command Line Tools are enough to build, and Xcode is not needed.
 
