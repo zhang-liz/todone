@@ -77,6 +77,17 @@ struct AppCommands: Commands {
     let model: AppModel
 
     var body: some Commands {
+        // SwiftUI's stock Undo/Redo drive an UndoManager the store does not use,
+        // so they would sit enabled and do nothing. Replace them.
+        CommandGroup(replacing: .undoRedo) {
+            Button("Undo") { store.undo() }
+                .keyboardShortcut("z", modifiers: .command)
+                .disabled(!store.canUndo)
+            Button("Redo") { store.redo() }
+                .keyboardShortcut("z", modifiers: [.command, .shift])
+                .disabled(!store.canRedo)
+        }
+
         // Replaces rather than follows .newItem: WindowGroup synthesises a
         // "New Window" item that also claims ⌘N, and macOS gives the shortcut
         // to whichever comes first, leaving Add Task unreachable.

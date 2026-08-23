@@ -59,6 +59,73 @@ public final class AppStore {
     @ObservationIgnored private let saveQueue = DispatchQueue(label: "com.lzhang.todone.save", qos: .utility)
     @ObservationIgnored public var saveDebounce: TimeInterval = 0.5
 
+    // MARK: - Undo
+
+    /// How many steps back Cmd-Z can reach.
+    public static let undoLimit = 50
+
+    /// Snapshots of the whole document, oldest first. The model types are
+    /// reference types, so each entry is an encoded deep copy — holding the
+    /// arrays alone would share objects with the live store and restore
+    /// nothing.
+    private var undoStack: [Data] = []
+    private var redoStack: [Data] = []
+    /// Suppresses recording while a snapshot is being applied, and while a
+    /// compound operation runs so it collapses into a single undo step.
+    private var suppressCheckpoints = false
+
+    public var canUndo: Bool { !undoStack.isEmpty }
+    public var canRedo: Bool { !redoStack.isEmpty }
+
+    /// Record the current state as an undo step. Called at the start of every
+    /// mutation, before anything changes.
+    func checkpoint() {
+        guard !suppressCheckpoints else { return }
+        guard let snapshot = try? Self.encoder.encode(document()) else { return }
+        undoStack.append(snapshot)
+        if undoStack.count > Self.undoLimit { undoStack.removeFirst() }
+        redoStack.removeAll()
+    }
+
+    public func undo() {
+        guard let previous = undoStack.popLast() else { return }
+        if let current = try? Self.encoder.encode(document()) {
+            redoStack.append(current)
+        }
+        apply(previous)
+    }
+
+    public func redo() {
+        guard let next = redoStack.popLast() else { return }
+        if let current = try? Self.encoder.encode(document()) {
+            undoStack.append(current)
+        }
+        apply(next)
+    }
+
+    private func apply(_ snapshot: Data) {
+        guard let doc = try? Self.decoder.decode(StoreDocument.self, from: snapshot) else { return }
+        suppressCheckpoints = true
+        defer { suppressCheckpoints = false }
+        projects = doc.projects
+        sections = doc.sections
+        tasks = doc.tasks
+        labels = doc.labels
+        filters = doc.filters
+        reminders = doc.reminders
+        events = doc.events
+        dailyStats = doc.dailyStats
+        karma = doc.karma
+        ensureInbox()
+        scheduleSave()
+        onRemindersChanged?()
+    }
+
+    private func clearHistory() {
+        undoStack.removeAll()
+        redoStack.removeAll()
+    }
+
     // MARK: - Init & persistence
 
     public init() {}
@@ -93,6 +160,8 @@ public final class AppStore {
         }
         ensureInbox()
         KarmaEngine.reconcileStreaks(state: &karma, now: Date(), calendar: calendar)
+        // Nothing before a load is a state the user can meaningfully return to.
+        clearHistory()
     }
 
     @discardableResult
@@ -192,6 +261,9 @@ public final class AppStore {
         dailyStats = []
         karma = KarmaState()
         ensureInbox()
+        // Erase is deliberately not undoable: keeping snapshots would let Cmd-Z
+        // resurrect data the user explicitly wiped, and hold it in memory after.
+        clearHistory()
         // An erase must hit disk immediately — a debounced save could die with
         // the process and resurrect "erased" data.
         saveNow()
@@ -390,6 +462,7 @@ public final class AppStore {
                         recurrence: String? = nil, projectID: UUID? = nil,
                         sectionID: UUID? = nil, parentID: UUID? = nil,
                         labelIDs: [UUID] = []) -> TodoTask {
+        checkpoint()
         let pid = projectID ?? inbox.id
         let siblings = tasks.filter { $0.projectID == pid && $0.sectionID == sectionID && $0.parentID == parentID }
         let order = (siblings.map(\.sortOrder).max() ?? 0) + 1
@@ -449,6 +522,7 @@ public final class AppStore {
     }
 
     public func updateTask(_ task: TodoTask, mutate: (TodoTask) -> Void) {
+        checkpoint()
         mutate(task)
         logEvent(.updated, task: task)
         scheduleSave()
@@ -459,6 +533,7 @@ public final class AppStore {
     /// of completing; karma and activity still count the completion.
     public func complete(_ task: TodoTask, now: Date = Date()) {
         guard !task.isCompleted else { return } // no double-count on double-tap
+        checkpoint()
         if let text = task.recurrence, let rule = RecurrenceRule.deserialize(text),
            let due = task.dueDate {
             let base = rule.strict ? Self.carryTime(from: due, onto: now, calendar: calendar) : due
@@ -507,6 +582,7 @@ public final class AppStore {
 
     public func uncomplete(_ task: TodoTask) {
         guard task.isCompleted else { return }
+        checkpoint()
         let when = task.completedAt ?? Date()
         task.completedAt = nil
         logEvent(.uncompleted, task: task)
@@ -522,18 +598,25 @@ public final class AppStore {
     }
 
     public func deleteTask(_ task: TodoTask) {
-        // Cascade to subtasks.
-        for sub in tasks.filter({ $0.parentID == task.id }) {
-            deleteTask(sub)
-        }
-        reminders.removeAll { $0.taskID == task.id }
-        logEvent(.deleted, task: task)
-        tasks.removeAll { $0.id == task.id }
+        checkpoint()
+        deleteTaskWithoutCheckpoint(task)
         scheduleSave()
         onRemindersChanged?()
     }
 
+    /// The cascade recurses, so the checkpoint is taken once by the caller
+    /// rather than once per subtask.
+    private func deleteTaskWithoutCheckpoint(_ task: TodoTask) {
+        for sub in tasks.filter({ $0.parentID == task.id }) {
+            deleteTaskWithoutCheckpoint(sub)
+        }
+        reminders.removeAll { $0.taskID == task.id }
+        logEvent(.deleted, task: task)
+        tasks.removeAll { $0.id == task.id }
+    }
+
     public func move(_ task: TodoTask, toProject projectID: UUID, section sectionID: UUID?) {
+        checkpoint()
         let changingBucket = task.projectID != projectID || task.sectionID != sectionID
         task.projectID = projectID
         task.sectionID = sectionID
@@ -556,8 +639,12 @@ public final class AppStore {
     /// Reorder within a sibling list: place `task` before `target` (or at end).
     public func reorder(_ task: TodoTask, before target: TodoTask?,
                         project projectID: UUID, section sectionID: UUID?) {
+        checkpoint()
         if task.projectID != projectID || task.sectionID != sectionID {
+            // Already checkpointed: a drag across projects is one undo step.
+            suppressCheckpoints = true
             move(task, toProject: projectID, section: sectionID)
+            suppressCheckpoints = false
         }
         var siblings = rootTasks(project: projectID, section: sectionID).filter { $0.id != task.id }
         let index = target.flatMap { t in siblings.firstIndex(where: { $0.id == t.id }) } ?? siblings.count
@@ -582,6 +669,7 @@ public final class AppStore {
 
     public func deleteProject(_ project: Project) {
         guard !project.isInbox else { return }
+        checkpoint()
         // descendantProjectIDs is cycle-safe; avoids unbounded recursion if a
         // parent cycle ever sneaks into the data.
         let doomed = descendantProjectIDs(of: project.id)
@@ -596,6 +684,7 @@ public final class AppStore {
 
     public func archiveProject(_ project: Project, archived: Bool = true) {
         guard !project.isInbox else { return }
+        checkpoint()
         let affected = descendantProjectIDs(of: project.id)
         for p in projects where affected.contains(p.id) && !p.isInbox {
             p.isArchived = archived
@@ -622,6 +711,7 @@ public final class AppStore {
 
     @discardableResult
     public func addSection(name: String, projectID: UUID) -> ProjectSection {
+        checkpoint()
         let order = (sections(in: projectID).map(\.sortOrder).max() ?? 0) + 1
         let s = ProjectSection(name: name, sortOrder: order, projectID: projectID)
         sections.append(s)
@@ -630,6 +720,7 @@ public final class AppStore {
     }
 
     public func deleteSection(_ section: ProjectSection) {
+        checkpoint()
         // Tasks in the section fall back to the project body.
         for t in tasks where t.sectionID == section.id {
             t.sectionID = nil
@@ -643,6 +734,7 @@ public final class AppStore {
     @discardableResult
     public func addLabel(name: String, color: ItemColor = .charcoal) -> TaskLabel {
         if let existing = labelNamed(name) { return existing }
+        checkpoint()
         let order = (labels.map(\.sortOrder).max() ?? 0) + 1
         let l = TaskLabel(name: name, color: color, sortOrder: order)
         labels.append(l)
@@ -651,6 +743,7 @@ public final class AppStore {
     }
 
     public func deleteLabel(_ label: TaskLabel) {
+        checkpoint()
         for t in tasks {
             t.labelIDs.removeAll { $0 == label.id }
         }
@@ -662,6 +755,7 @@ public final class AppStore {
 
     @discardableResult
     public func addFilter(name: String, query: String, color: ItemColor = .charcoal) -> SavedFilter {
+        checkpoint()
         let order = (filters.map(\.sortOrder).max() ?? 0) + 1
         let f = SavedFilter(name: name, query: query, color: color, sortOrder: order)
         filters.append(f)
@@ -670,6 +764,7 @@ public final class AppStore {
     }
 
     public func deleteFilter(_ filter: SavedFilter) {
+        checkpoint()
         filters.removeAll { $0.id == filter.id }
         scheduleSave()
     }
@@ -678,6 +773,7 @@ public final class AppStore {
 
     @discardableResult
     public func addReminder(taskID: UUID, kind: ReminderKind) -> TaskReminder {
+        checkpoint()
         let r = TaskReminder(taskID: taskID, kind: kind)
         reminders.append(r)
         scheduleSave()
@@ -686,6 +782,7 @@ public final class AppStore {
     }
 
     public func deleteReminder(_ reminder: TaskReminder) {
+        checkpoint()
         reminders.removeAll { $0.id == reminder.id }
         scheduleSave()
         onRemindersChanged?()
