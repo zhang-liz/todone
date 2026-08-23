@@ -26,6 +26,8 @@ struct ProjectView: View {
             }
         }
         .navigationTitle(project?.isInbox == true ? "Inbox" : project?.name ?? "")
+        .onAppear { model.visibleTaskIDs = visibleOrder }
+        .onChange(of: visibleOrder) { _, ids in model.visibleTaskIDs = ids }
         .toolbar { toolbarContent }
         .inspector(isPresented: Binding(
             get: { model.selectedTaskID != nil },
@@ -33,6 +35,17 @@ struct ProjectView: View {
         )) {
             TaskDetailView()
         }
+    }
+
+    /// Task IDs in the order the list renders them: unsectioned first, then each
+    /// section in turn. Mirrors `listBody` so keyboard navigation follows what
+    /// is actually on screen.
+    private var visibleOrder: [UUID] {
+        var ids = store.rootTasks(project: projectID, section: nil).map(\.id)
+        for section in store.sections(in: projectID) {
+            ids += store.rootTasks(project: projectID, section: section.id).map(\.id)
+        }
+        return ids
     }
 
     private func listBody(_ project: Project) -> some View {

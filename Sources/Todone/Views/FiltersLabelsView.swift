@@ -99,6 +99,13 @@ struct FilterTasksView: View {
 
     let filter: SavedFilter
 
+    /// Empty when the query is invalid, so keyboard navigation has nothing to
+    /// walk rather than stale results from the last valid query.
+    private var matchingIDs: [UUID] {
+        guard case .success(let expr) = parseResult else { return [] }
+        return store.tasksMatching(expr).map(\.id)
+    }
+
     var body: some View {
         Group {
             switch parseResult {
@@ -127,6 +134,8 @@ struct FilterTasksView: View {
             }
         }
         .navigationTitle(filter.name)
+        .onAppear { model.visibleTaskIDs = matchingIDs }
+        .onChange(of: matchingIDs) { _, ids in model.visibleTaskIDs = ids }
         .inspector(isPresented: Binding(
             get: { model.selectedTaskID != nil },
             set: { if !$0 { model.selectedTaskID = nil } }
@@ -176,6 +185,8 @@ struct LabelTasksView: View {
             }
         }
         .navigationTitle("@\(label.name)")
+        .onAppear { model.visibleTaskIDs = tasks.map(\.id) }
+        .onChange(of: tasks.map(\.id)) { _, ids in model.visibleTaskIDs = ids }
         .inspector(isPresented: Binding(
             get: { model.selectedTaskID != nil },
             set: { if !$0 { model.selectedTaskID = nil } }

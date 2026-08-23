@@ -44,6 +44,8 @@ struct UpcomingView: View {
             }
         }
         .navigationTitle("Upcoming")
+        .onAppear { model.visibleTaskIDs = visibleOrder }
+        .onChange(of: visibleOrder) { _, ids in model.visibleTaskIDs = ids }
         .inspector(isPresented: Binding(
             get: { model.selectedTaskID != nil },
             set: { if !$0 { model.selectedTaskID = nil } }
@@ -104,6 +106,18 @@ struct UpcomingView: View {
     // MARK: - Blocks
 
     @ViewBuilder
+    /// Overdue first, then each shown day in order — matching the rendered list.
+    private var visibleOrder: [UUID] {
+        var ids = store.overdueTasks()
+            .filter { !calendar.isDateInToday($0.dueDate ?? Date()) }
+            .map(\.id)
+        for offset in 0..<daysShown {
+            guard let day = calendar.date(byAdding: .day, value: offset, to: anchorDay) else { continue }
+            ids += store.tasksDue(on: day).map(\.id)
+        }
+        return ids
+    }
+
     private var overdueBlock: some View {
         let overdue = store.overdueTasks().filter { !calendar.isDateInToday($0.dueDate ?? Date()) }
         if !overdue.isEmpty {

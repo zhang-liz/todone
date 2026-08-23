@@ -81,6 +81,10 @@ struct TodayView: View {
             .padding(.vertical, 8)
         }
         .navigationTitle("Today")
+        .onAppear { model.visibleTaskIDs = (overdue + today).map(\.id) }
+        .onChange(of: (overdue + today).map(\.id)) { _, ids in
+            model.visibleTaskIDs = ids
+        }
         .inspector(isPresented: Binding(
             get: { model.selectedTaskID != nil },
             set: { if !$0 { model.selectedTaskID = nil } }

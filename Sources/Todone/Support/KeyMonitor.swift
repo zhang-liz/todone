@@ -35,9 +35,26 @@ final class KeyMonitor {
                responder is NSTextView || responder is NSText {
                 return event
             }
+            // Arrow keys move the selection so the action keys below have
+            // something to act on without reaching for the mouse.
+            if event.keyCode == 125 { // down
+                model.moveSelection(by: 1)
+                return nil
+            }
+            if event.keyCode == 126 { // up
+                model.moveSelection(by: -1)
+                return nil
+            }
+
             guard let chars = event.charactersIgnoringModifiers?.lowercased() else { return event }
 
             switch chars {
+            case "j":
+                model.moveSelection(by: 1)
+                return nil
+            case "k":
+                model.moveSelection(by: -1)
+                return nil
             case "q":
                 model.showQuickAdd = true
                 return nil
@@ -55,8 +72,11 @@ final class KeyMonitor {
                 return nil
             case "e":
                 if let id = model.selectedTaskID, let task = store.task(id) {
+                    // Keep the selection where the completed row was, so a list
+                    // can be worked through with repeated presses.
+                    let successor = ListNavigator.successor(after: id, in: model.visibleTaskIDs)
                     store.complete(task)
-                    model.selectedTaskID = nil
+                    model.selectedTaskID = successor
                     return nil
                 }
                 return event

@@ -30,8 +30,21 @@ final class AppModel {
     /// Bumped at midnight so date-anchored views (Today, Upcoming) recompute.
     var dayTick = 0
 
+    /// Task IDs in the order the current view shows them. Published by whichever
+    /// view is on screen so arrow / j / k can walk the list the user can see,
+    /// rather than the store's unordered array.
+    var visibleTaskIDs: [UUID] = []
+
     func select(_ item: SidebarItem) {
         selection = item
         selectedTaskID = nil
+    }
+
+    /// Move the selection by `offset` through `visibleTaskIDs`. Holds position
+    /// at the ends rather than moving nowhere silently.
+    func moveSelection(by offset: Int) {
+        if let next = ListNavigator.step(from: selectedTaskID, by: offset, in: visibleTaskIDs) {
+            selectedTaskID = next
+        }
     }
 }
