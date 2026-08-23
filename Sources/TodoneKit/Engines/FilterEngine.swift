@@ -165,8 +165,14 @@ public enum FilterEngine {
     // MARK: - Parser
 
     struct Parser {
+        /// Bound on `!`/parenthesis nesting. Saved queries are reloaded at launch,
+        /// so unbounded recursion here would crash the app on every start rather
+        /// than showing the filter as invalid.
+        static let maxDepth = 100
+
         let scanner: NSString
         var pos: Int = 0
+        var depth: Int = 0
         let calendar: Calendar
         let now: Date
 
@@ -223,10 +229,16 @@ public enum FilterEngine {
             guard let c = peek() else { throw FilterParseError("Expected expression") }
             if c == u("!") {
                 pos += 1
+                depth += 1
+                defer { depth -= 1 }
+                guard depth <= Self.maxDepth else { throw FilterParseError("Query is nested too deeply") }
                 return .not(try parseUnary())
             }
             if c == u("(") {
                 pos += 1
+                depth += 1
+                defer { depth -= 1 }
+                guard depth <= Self.maxDepth else { throw FilterParseError("Query is nested too deeply") }
                 let inner = try parseExpression()
                 guard let close = peek(), close == u(")") else {
                     throw FilterParseError("Missing closing parenthesis")

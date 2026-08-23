@@ -150,6 +150,26 @@ import Testing
         }
     }
 
+    // Saved queries are reloaded at launch, so an over-nested one used to crash
+    // the app on every start rather than surfacing as an invalid filter.
+    @Test func deeplyNestedQueryThrowsInsteadOfCrashing() {
+        let deep = String(repeating: "(", count: 5_000) + "p1" + String(repeating: ")", count: 5_000)
+        #expect(throws: FilterParseError.self) {
+            _ = try FilterEngine.parse(deep, calendar: cal, now: now)
+        }
+
+        let deepNot = String(repeating: "!", count: 5_000) + "p1"
+        #expect(throws: FilterParseError.self) {
+            _ = try FilterEngine.parse(deepNot, calendar: cal, now: now)
+        }
+    }
+
+    @Test func reasonableNestingStillParses() throws {
+        store.addTask(title: "a", priority: .p1, projectID: work.id)
+        let nested = String(repeating: "(", count: 20) + "p1" + String(repeating: ")", count: 20)
+        #expect(try matches(nested).map(\.title) == ["a"])
+    }
+
     @Test func quotedProjectName() throws {
         let big = store.addProject(name: "Big Plans")
         store.addTask(title: "inside", projectID: big.id)
