@@ -159,7 +159,22 @@ import Testing
         #expect(t.dueDate == day(2027, 2, 28))  // clamped into February
 
         s.complete(t, now: day(2027, 2, 28, 12))
-        #expect(t.dueDate == day(2027, 3, 28))  // stays on the clamped day, no month-end jump
+        #expect(t.dueDate == day(2027, 3, 30))  // recovers the 30th; no month-end jump
+        #expect(t.recurrenceAnchorDay == 30)
+    }
+
+    @Test func taskSavedWithoutAnchorDayStillDecodes() throws {
+        // A task encoded before recurrenceAnchorDay existed.
+        let json = """
+        {"id":"1D9F1E64-0E2B-4C46-9F5E-9C0B1B7A4E11","title":"rent","details":"",
+         "priority":4,"dueDate":"2027-01-30T12:00:00.000Z","hasDueTime":false,
+         "recurrence":"every month","sortOrder":1,"createdAt":"2027-01-01T12:00:00.000Z",
+         "projectID":"2D9F1E64-0E2B-4C46-9F5E-9C0B1B7A4E22","labelIDs":[]}
+        """
+        let task = try AppStore.decoder.decode(TodoTask.self, from: Data(json.utf8))
+        #expect(task.recurrenceAnchorDay == nil)
+        #expect(task.recurrence == "every month")
+        #expect(task.title == "rent")
     }
 
     @Test func leapDayMonthlyDoesNotJumpToMonthEnd() throws {
