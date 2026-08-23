@@ -97,4 +97,44 @@ import Testing
         let locations = r.tokens.map(\.range.location)
         #expect(locations == locations.sorted())
     }
+
+    // A bare time supplies a date, which used to suppress the weekday alignment
+    // and start weekday rules on whatever day the time landed on.
+    @Test func weekdayRuleWithTimeStartsOnMatchingWeekday() {
+        // now = Wednesday Jul 22 2026.
+        let r = parser.parse("standup every mon 5pm")
+        #expect(r.dueDate == day(2026, 7, 27, 17))  // the following Monday
+        #expect(r.hasDueTime)
+    }
+
+    @Test func workdayRuleWithTimeSkipsTheWeekend() {
+        let sat = cal.date(from: DateComponents(year: 2026, month: 7, day: 25, hour: 10))!
+        let satParser = QuickAddParser(calendar: cal, now: sat)
+
+        let r = satParser.parse("gym every workday at 7am")
+        #expect(r.dueDate == day(2026, 7, 27, 7))   // Monday, not Sunday
+    }
+
+    @Test func weekdayRuleWithTimeKeepsTodayWhenTodayMatches() {
+        // Wednesday rule parsed on a Wednesday, before the stated time.
+        let r = parser.parse("standup every wed 5pm")
+        #expect(r.dueDate == day(2026, 7, 22, 17))
+    }
+
+    @Test func explicitDateStillWinsOverWeekdayAlignment() {
+        let r = parser.parse("standup every mon jul 24 5pm")
+        #expect(r.dueDate == day(2026, 7, 24, 17))
+    }
+
+    @Test func monthDayRuleWithoutDateStartsOnThatDay() {
+        // now = Jul 22; the 15th has passed, so the next one is Aug 15.
+        let r = parser.parse("rent every month on the 15th")
+        #expect(r.dueDate == day(2026, 8, 15))
+    }
+
+    @Test func monthDayRuleWithTimeStartsOnThatDay() {
+        let r = parser.parse("review every month on the 15th at 9am")
+        #expect(r.dueDate == day(2026, 8, 15, 9))
+        #expect(r.hasDueTime)
+    }
 }

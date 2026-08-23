@@ -4,12 +4,17 @@ import Foundation
 public struct ParsedNLDate: Equatable {
     public var date: Date
     public var hasTime: Bool
+    /// Whether the text named a day. False when only a time was given and the
+    /// day was inferred as today/tomorrow, which callers must not treat as an
+    /// explicit start date.
+    public var hasExplicitDay: Bool
     /// Ranges (UTF-16 offsets into the source string) that the date/time expressions occupied.
     public var ranges: [NSRange]
 
-    public init(date: Date, hasTime: Bool, ranges: [NSRange]) {
+    public init(date: Date, hasTime: Bool, hasExplicitDay: Bool = true, ranges: [NSRange]) {
         self.date = date
         self.hasTime = hasTime
+        self.hasExplicitDay = hasExplicitDay
         self.ranges = ranges
     }
 }
@@ -206,7 +211,7 @@ public struct NLDateParser {
             }
             var ranges: [NSRange] = []
             if let r = timeRange { ranges.append(r) }
-            return ParsedNLDate(date: candidate, hasTime: true, ranges: ranges)
+            return ParsedNLDate(date: candidate, hasTime: true, hasExplicitDay: false, ranges: ranges)
         }
     }
 

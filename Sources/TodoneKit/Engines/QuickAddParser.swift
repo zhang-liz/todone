@@ -142,24 +142,41 @@ public struct QuickAddParser {
 
         // 4. Date/time.
         let dateParser = NLDateParser(calendar: calendar, now: now)
+        var namedADay = false
         if let parsed = dateParser.parse(masked) {
             let usable = parsed.ranges.filter { !isDisabled($0) }
             if usable.count == parsed.ranges.count {
                 result.dueDate = parsed.date
                 result.hasDueTime = parsed.hasTime
+                namedADay = parsed.hasExplicitDay
                 for r in parsed.ranges { claim(r, .date) }
             }
         }
 
-        // A recurring task with no explicit start date starts today (or at the
-        // next matching weekday for weekday rules).
-        if result.recurrence != nil, result.dueDate == nil {
+        // A recurring task whose text never named a day starts today, or at the
+        // rule's next matching day for weekday/month-day rules. A bare time
+        // ("at 7am") supplies a date but not a day, so it must not suppress this.
+        if let rule = result.recurrence, !namedADay {
             let today = calendar.startOfDay(for: now)
-            if let rule = result.recurrence, !rule.weekdays.isEmpty,
+            let start: Date
+            if !rule.weekdays.isEmpty,
                !rule.weekdays.contains(calendar.component(.weekday, from: today)) {
-                result.dueDate = rule.nextOccurrence(after: today, calendar: calendar)
+                start = rule.nextOccurrence(after: today, calendar: calendar) ?? today
+            } else if rule.monthDay != nil,
+                      calendar.component(.day, from: today) != rule.monthDay {
+                start = rule.nextOccurrence(after: today, calendar: calendar) ?? today
             } else {
-                result.dueDate = today
+                start = today
+            }
+            // A bare time already set result.dueDate; keep its hour on the new day.
+            if let timed = result.dueDate, result.hasDueTime {
+                var comps = calendar.dateComponents([.year, .month, .day], from: start)
+                let time = calendar.dateComponents([.hour, .minute], from: timed)
+                comps.hour = time.hour
+                comps.minute = time.minute
+                result.dueDate = calendar.date(from: comps) ?? start
+            } else {
+                result.dueDate = start
             }
         }
 
