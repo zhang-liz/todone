@@ -6,7 +6,7 @@ sync, so your data stays in `~/Library/Application Support/Todone/todone.json`.
 
 [![Download for macOS](https://img.shields.io/badge/Download%20for%20macOS-.dmg-0A84FF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/zhang-liz/todone/releases/latest)
 
-![status](https://img.shields.io/badge/tests-186%20passing-brightgreen)
+![status](https://img.shields.io/badge/tests-229%20passing-brightgreen)
 [![release](https://img.shields.io/github/v/release/zhang-liz/todone?display_name=tag)](https://github.com/zhang-liz/todone/releases/latest)
 
 ## Features
@@ -29,11 +29,16 @@ sync, so your data stays in `~/Library/Application Support/Todone/todone.json`.
 - **Karma** — points, levels (Beginner → Enlightened), daily/weekly goals,
   streaks, vacation mode, 4-week completion chart
 - **Undo** — ⌘Z reverses any change, 50 steps deep, ⇧⌘Z redoes
+- **Sort & group** — per project, by due date, priority, name, or date added;
+  group by priority, due date, or project
+- **Multi-select** — shift-click a range or ⌘-click individual tasks, then
+  complete, reschedule, move, or delete them together
 - **Activity log** — grouped by day, filterable by event type
 - **Notifications** — reminders at/before due time, dock badge with today count
 - **Themes** — 10 accent themes, light/dark/system
-- **Keyboard-first** — `q` quick add, `/` search, `t`/`u`/`i` view switching,
-  `1–4` priority, `e` complete, global ⌥Space quick add from any app
+- **Keyboard-first** — arrows or `j`/`k` to move between tasks, `q` quick add,
+  `/` search, `t`/`u`/`i` view switching, `1–4` priority, `e` complete,
+  global ⌥Space quick add from any app
 
 ## Install
 
@@ -61,7 +66,7 @@ cp -r build/Todone.app /Applications/
 ## Development
 
 ```bash
-swift test              # 186 tests
+swift test              # 229 tests
 Scripts/build-app.sh    # build -> build/Todone.app
 open build/Todone.app
 ```
