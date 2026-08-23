@@ -81,6 +81,17 @@ import Testing
         #expect(Set(withSub.map(\.title)) == ["in work", "in reports"])
     }
 
+    @Test func subprojectSearchSkipsArchivedProjects() throws {
+        let archived = store.addProject(name: "Old Reports", parentID: work.id)
+        archived.isArchived = true
+        store.addTask(title: "in work", projectID: work.id)
+        store.addTask(title: "in archived", projectID: archived.id)
+
+        // #Project already ignores archived projects; ## must agree with it.
+        #expect(try matches("##Work").map(\.title) == ["in work"])
+        #expect(try matches("#\"Old Reports\"").isEmpty)
+    }
+
     @Test func labelAndNoLabel() throws {
         store.addTask(title: "tagged", projectID: work.id, labelIDs: [urgentLabel.id])
         store.addTask(title: "untagged", projectID: work.id)
@@ -186,6 +197,47 @@ import Testing
         store.addTask(title: "outside", projectID: work.id)
 
         #expect(try matches("#\"Welcome 👋\"").map(\.title) == ["inside"])
+    }
+
+    // "date before: aug 1 p1" used to swallow the p1 into the date argument and
+    // silently drop it, quietly widening the filter.
+    @Test func dateArgumentDoesNotSwallowFollowingTerms() throws {
+        store.addTask(title: "early urgent", priority: .p1, dueDate: day(2026, 7, 25), projectID: work.id)
+        store.addTask(title: "early chill", priority: .p3, dueDate: day(2026, 7, 25), projectID: work.id)
+
+        #expect(try matches("date before: aug 1 & p1").map(\.title) == ["early urgent"])
+        #expect(try matches("date before: aug 1 p1").map(\.title) == ["early urgent"])
+    }
+
+    @Test func createdDateArgumentDoesNotSwallowFollowingTerms() throws {
+        #expect(throws: Never.self) {
+            _ = try FilterEngine.parse("created before: aug 1 p1", calendar: cal, now: now)
+        }
+    }
+
+    @Test func nDaysIsCaseAndSpaceInsensitive() throws {
+        store.addTask(title: "soon", dueDate: day(2026, 7, 24), projectID: work.id)
+
+        #expect(try matches("7 days").map(\.title) == ["soon"])
+        #expect(try matches("7 DAYS").map(\.title) == ["soon"])
+        #expect(try matches("7  days").map(\.title) == ["soon"])
+    }
+
+    @Test func absurdDayCountIsRejected() {
+        #expect(throws: FilterParseError.self) {
+            _ = try FilterEngine.parse("9223372036854775807 days", calendar: cal, now: now)
+        }
+        #expect(throws: FilterParseError.self) {
+            _ = try FilterEngine.parse("999999999999 days", calendar: cal, now: now)
+        }
+    }
+
+    @Test func searchAcceptsOperatorsAndQuotes() throws {
+        store.addTask(title: "ship a&b now", projectID: work.id)
+        store.addTask(title: "quoted phrase here", projectID: work.id)
+
+        #expect(try matches("search: \"a&b\"").map(\.title) == ["ship a&b now"])
+        #expect(try matches("search: \"quoted phrase\"").map(\.title) == ["quoted phrase here"])
     }
 
     @Test func emojiLabelAndSearch() throws {

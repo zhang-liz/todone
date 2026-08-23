@@ -219,11 +219,28 @@ public final class AppStore {
             .sorted { $0.sortOrder < $1.sortOrder }
     }
 
+    /// The project plus every descendant, archived ones included. Callers that
+    /// delete or check for cycles need the complete set; filter matching uses
+    /// `liveDescendantProjectIDs` instead.
     public func descendantProjectIDs(of id: UUID) -> Set<UUID> {
         var out: Set<UUID> = [id]
         var queue = [id]
         while let current = queue.popLast() {
             for child in projects where child.parentID == current {
+                if out.insert(child.id).inserted { queue.append(child.id) }
+            }
+        }
+        return out
+    }
+
+    /// The project plus its non-archived descendants, for `##Project` matching.
+    /// `projectNamed` already ignores archived projects, so including them here
+    /// would make `##Work` match tasks that `#ArchivedChild` cannot find.
+    public func liveDescendantProjectIDs(of id: UUID) -> Set<UUID> {
+        var out: Set<UUID> = [id]
+        var queue = [id]
+        while let current = queue.popLast() {
+            for child in projects where child.parentID == current && !child.isArchived {
                 if out.insert(child.id).inserted { queue.append(child.id) }
             }
         }
@@ -299,7 +316,7 @@ public final class AppStore {
             },
             projectIDs: { [weak self] name, includeSub in
                 guard let self, let p = self.projectNamed(name) else { return [] }
-                return includeSub ? self.descendantProjectIDs(of: p.id) : [p.id]
+                return includeSub ? self.liveDescendantProjectIDs(of: p.id) : [p.id]
             }
         )
     }
