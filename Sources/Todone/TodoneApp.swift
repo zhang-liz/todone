@@ -98,6 +98,8 @@ struct AppCommands: Commands {
                 .keyboardShortcut("3", modifiers: .command)
             Button("Activity") { model.select(.activity) }
                 .keyboardShortcut("4", modifiers: .command)
+            Button("Completed") { model.select(.completed) }
+                .keyboardShortcut("5", modifiers: .command)
         }
 
         CommandMenu("Task") {
