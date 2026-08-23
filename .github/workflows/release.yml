@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g. 1.0.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run tests
+        run: swift test
+
+      - name: Build app
+        run: Scripts/build-app.sh release
+
+      - name: Stamp version into bundle
+        run: |
+          V="${{ steps.version.outputs.value }}"
+          plutil -replace CFBundleShortVersionString -string "$V" build/Todone.app/Contents/Info.plist
+          plutil -replace CFBundleVersion -string "$GITHUB_RUN_NUMBER" build/Todone.app/Contents/Info.plist
+          codesign --force --sign - build/Todone.app
+
+      - name: Package DMG
+        run: Scripts/make-dmg.sh "${{ steps.version.outputs.value }}"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.value }}
+          name: Todone ${{ steps.version.outputs.value }}
+          files: build/Todone-${{ steps.version.outputs.value }}.dmg
+          generate_release_notes: true
+          body: |
+            ## Install
+
+            1. Download `Todone-${{ steps.version.outputs.value }}.dmg` below.
+            2. Open it and drag Todone to Applications.
+            3. Right-click Todone in Applications and choose **Open**, then **Open** again.
+
+            Step 3 is a one-time step. The app is ad-hoc signed rather than notarized,
+            so macOS asks for confirmation on first launch.
+
+            Requires macOS 14 or later.
