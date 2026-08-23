@@ -206,13 +206,31 @@ import Testing
         store.addTask(title: "early chill", priority: .p3, dueDate: day(2026, 7, 25), projectID: work.id)
 
         #expect(try matches("date before: aug 1 & p1").map(\.title) == ["early urgent"])
-        #expect(try matches("date before: aug 1 p1").map(\.title) == ["early urgent"])
+
+        // Juxtaposition without an operator is invalid everywhere else in the
+        // grammar ("today p1" errors), so it must error here too rather than
+        // silently discarding the trailing term.
+        #expect(throws: FilterParseError.self) {
+            _ = try FilterEngine.parse("date before: aug 1 p1", calendar: cal, now: now)
+        }
     }
 
-    @Test func createdDateArgumentDoesNotSwallowFollowingTerms() throws {
-        #expect(throws: Never.self) {
+    @Test func createdDateArgumentDoesNotSwallowFollowingTerms() {
+        #expect(throws: FilterParseError.self) {
             _ = try FilterEngine.parse("created before: aug 1 p1", calendar: cal, now: now)
         }
+        #expect(throws: FilterParseError.self) {
+            _ = try FilterEngine.parse("date after: aug 1 today", calendar: cal, now: now)
+        }
+    }
+
+    @Test func dateArgumentStillWorksWithOperators() throws {
+        store.addTask(title: "late", dueDate: day(2026, 8, 20), projectID: work.id)
+        store.addTask(title: "early", dueDate: day(2026, 7, 25), projectID: work.id)
+
+        #expect(try matches("date after: aug 1").map(\.title) == ["late"])
+        #expect(try matches("date before: aug 1 | p1").map(\.title) == ["early"])
+        #expect(try matches("(date before: aug 1)").map(\.title) == ["early"])
     }
 
     @Test func nDaysIsCaseAndSpaceInsensitive() throws {
