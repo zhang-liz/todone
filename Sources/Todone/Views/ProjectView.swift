@@ -107,6 +107,31 @@ struct ProjectView: View {
                 .help(project.viewStyle == .list ? "Board view" : "List view")
             }
 
+            if let project {
+                Menu {
+                    Picker("Sort by", selection: Binding(
+                        get: { project.taskSort },
+                        set: { project.taskSort = $0; store.scheduleSave() }
+                    )) {
+                        ForEach(TaskSort.allCases, id: \.self) { option in
+                            Text(option.displayName).tag(option)
+                        }
+                    }
+                    Divider()
+                    Picker("Group by", selection: Binding(
+                        get: { project.grouping },
+                        set: { project.grouping = $0; store.scheduleSave() }
+                    )) {
+                        ForEach(TaskGrouping.allCases, id: \.self) { option in
+                            Text(option.displayName).tag(option)
+                        }
+                    }
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down")
+                }
+                .help("Sort and group")
+            }
+
             Toggle(isOn: $showCompleted) {
                 Image(systemName: "checkmark.circle")
             }
@@ -134,19 +159,33 @@ struct TaskGroupView: View {
 
     var body: some View {
         let tasks = store.rootTasks(project: projectID, section: sectionID)
+        let grouping = store.project(projectID)?.grouping ?? .none
+        let groups = TaskSorter.grouped(tasks, by: grouping,
+                                        calendar: store.calendar,
+                                        projectName: { store.project($0)?.name })
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(tasks) { task in
-                VStack(alignment: .leading, spacing: 0) {
-                    TaskRowView(task: task)
-                        .draggable(task.id.uuidString)
-                    SubtaskListView(parentID: task.id, depth: 1)
+            ForEach(groups) { group in
+                if !group.title.isEmpty {
+                    Text(group.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
+                        .padding(.bottom, 4)
                 }
-                .padding(.horizontal, 20)
-                // Dropping onto a row inserts before that row.
-                .dropDestination(for: String.self) { items, _ in
-                    handleDrop(items, before: task)
+                ForEach(group.tasks) { task in
+                    VStack(alignment: .leading, spacing: 0) {
+                        TaskRowView(task: task)
+                            .draggable(task.id.uuidString)
+                        SubtaskListView(parentID: task.id, depth: 1)
+                    }
+                    .padding(.horizontal, 20)
+                    // Dropping onto a row inserts before that row.
+                    .dropDestination(for: String.self) { items, _ in
+                        handleDrop(items, before: task)
+                    }
+                    Divider().padding(.leading, 48)
                 }
-                Divider().padding(.leading, 48)
             }
 
             if adding {

@@ -121,6 +121,16 @@ public final class AppStore {
         onRemindersChanged?()
     }
 
+    /// Run `body` as one undo step, however many mutations it makes. Without
+    /// this a bulk action over N tasks would need N presses of Cmd-Z.
+    public func asSingleUndoStep(_ body: () -> Void) {
+        guard !suppressCheckpoints else { body(); return }
+        checkpoint()
+        suppressCheckpoints = true
+        body()
+        suppressCheckpoints = false
+    }
+
     private func clearHistory() {
         undoStack.removeAll()
         redoStack.removeAll()
@@ -333,10 +343,9 @@ public final class AppStore {
 
     /// Incomplete root tasks in a project (optionally scoped to a section).
     public func rootTasks(project projectID: UUID, section sectionID: UUID?) -> [TodoTask] {
-        tasks
-            .filter { $0.projectID == projectID && $0.sectionID == sectionID
-                && $0.parentID == nil && !$0.isCompleted }
-            .sorted { $0.sortOrder < $1.sortOrder }
+        let hits = tasks.filter { $0.projectID == projectID && $0.sectionID == sectionID
+            && $0.parentID == nil && !$0.isCompleted }
+        return TaskSorter.sorted(hits, by: project(projectID)?.taskSort ?? .manual)
     }
 
     public func subtasks(of taskID: UUID, includeCompleted: Bool = true) -> [TodoTask] {

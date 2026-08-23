@@ -73,12 +73,17 @@ public final class Project: Identifiable, Codable {
     public var isFavorite: Bool
     public var isInbox: Bool
     public var viewStyle: ViewStyle
+    /// How this project's list is ordered and grouped. Per-project like
+    /// `viewStyle`; absent in stores written before these existed.
+    public var taskSort: TaskSort
+    public var grouping: TaskGrouping
     public var sortOrder: Double
     public var parentID: UUID?
     public var isArchived: Bool
 
     public init(id: UUID = UUID(), name: String, color: ItemColor = .charcoal,
                 isFavorite: Bool = false, isInbox: Bool = false, viewStyle: ViewStyle = .list,
+                taskSort: TaskSort = .manual, grouping: TaskGrouping = .none,
                 sortOrder: Double = 0, parentID: UUID? = nil, isArchived: Bool = false) {
         self.id = id
         self.name = name
@@ -86,13 +91,16 @@ public final class Project: Identifiable, Codable {
         self.isFavorite = isFavorite
         self.isInbox = isInbox
         self.viewStyle = viewStyle
+        self.taskSort = taskSort
+        self.grouping = grouping
         self.sortOrder = sortOrder
         self.parentID = parentID
         self.isArchived = isArchived
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, color, isFavorite, isInbox, viewStyle, sortOrder, parentID, isArchived
+        case id, name, color, isFavorite, isInbox, viewStyle, taskSort, grouping,
+             sortOrder, parentID, isArchived
     }
 
     public convenience init(from decoder: Decoder) throws {
@@ -104,6 +112,8 @@ public final class Project: Identifiable, Codable {
             isFavorite: try c.decode(Bool.self, forKey: .isFavorite),
             isInbox: try c.decode(Bool.self, forKey: .isInbox),
             viewStyle: try c.decode(ViewStyle.self, forKey: .viewStyle),
+            taskSort: try c.decodeIfPresent(TaskSort.self, forKey: .taskSort) ?? .manual,
+            grouping: try c.decodeIfPresent(TaskGrouping.self, forKey: .grouping) ?? .none,
             sortOrder: try c.decode(Double.self, forKey: .sortOrder),
             parentID: try c.decodeIfPresent(UUID.self, forKey: .parentID),
             isArchived: try c.decode(Bool.self, forKey: .isArchived)
@@ -118,6 +128,8 @@ public final class Project: Identifiable, Codable {
         try c.encode(isFavorite, forKey: .isFavorite)
         try c.encode(isInbox, forKey: .isInbox)
         try c.encode(viewStyle, forKey: .viewStyle)
+        try c.encode(taskSort, forKey: .taskSort)
+        try c.encode(grouping, forKey: .grouping)
         try c.encode(sortOrder, forKey: .sortOrder)
         try c.encodeIfPresent(parentID, forKey: .parentID)
         try c.encode(isArchived, forKey: .isArchived)

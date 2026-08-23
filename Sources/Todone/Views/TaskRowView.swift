@@ -37,11 +37,22 @@ struct TaskRowView: View {
         }
         .padding(.leading, CGFloat(indent) * 24)
         .padding(.vertical, 6)
+        .background(
+            model.taskSelection.contains(task.id)
+                ? Color.accentColor.opacity(0.12)
+                : Color.clear
+        )
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
+        // Modifier-aware taps come first: SwiftUI matches the most specific
+        // gesture, so the plain tap below only fires with no modifiers held.
         .onTapGesture {
-            model.selectedTaskID = task.id
+            model.handleClick(on: task.id, extending: false, toggling: false)
         }
+        .modifier(ModifierClicks(
+            onShift: { model.handleClick(on: task.id, extending: true, toggling: false) },
+            onCommand: { model.handleClick(on: task.id, extending: false, toggling: true) }
+        ))
         .contextMenu { contextMenuContent }
         .popover(isPresented: $showScheduler) {
             SchedulePopover(task: task)
@@ -187,8 +198,72 @@ struct TaskRowView: View {
         .foregroundStyle(.secondary)
     }
 
+    /// Tasks a menu action applies to: the whole selection when this row is
+    /// part of it, otherwise just this row.
+    private var actionTargets: [TodoTask] {
+        guard model.taskSelection.count > 1, model.taskSelection.contains(task.id) else {
+            return [task]
+        }
+        return model.visibleTaskIDs
+            .filter { model.taskSelection.contains($0) }
+            .compactMap { store.task($0) }
+    }
+
     @ViewBuilder
     private var contextMenuContent: some View {
+        if actionTargets.count > 1 {
+            bulkMenuContent
+        } else {
+            singleMenuContent
+        }
+    }
+
+    @ViewBuilder
+    private var bulkMenuContent: some View {
+        Group {
+            let n = actionTargets.count
+            Button("Complete \(n) Tasks") {
+                store.asSingleUndoStep { for t in actionTargets { store.complete(t) } }
+                model.taskSelection.clear()
+            }
+            Button("Due Today (\(n))") {
+                store.asSingleUndoStep {
+                    for t in actionTargets {
+                        store.updateTask(t) { task in
+                            task.dueDate = Calendar.current.startOfDay(for: Date())
+                            task.hasDueTime = false
+                        }
+                    }
+                }
+            }
+            Menu("Priority (\(n))") {
+                ForEach(Priority.allCases, id: \.rawValue) { p in
+                    Button("Priority \(p.rawValue)") {
+                        store.asSingleUndoStep {
+                            for t in actionTargets { store.updateTask(t) { $0.priority = p } }
+                        }
+                    }
+                }
+            }
+            Menu("Move \(n) to") {
+                ForEach(store.projects.filter { !$0.isArchived }) { project in
+                    Button(project.name) {
+                        store.asSingleUndoStep {
+                            for t in actionTargets { store.move(t, toProject: project.id, section: nil) }
+                        }
+                    }
+                }
+            }
+            Divider()
+            Button("Delete \(n) Tasks", role: .destructive) {
+                store.asSingleUndoStep { for t in actionTargets { store.deleteTask(t) } }
+                model.taskSelection.clear()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var singleMenuContent: some View {
         Button("Edit") { model.selectedTaskID = task.id }
         Button("Schedule…") { showScheduler = true }
 
@@ -319,5 +394,25 @@ struct SchedulePopover: View {
             if cal.component(.weekday, from: d) == 2 { return d }
         }
         return nil
+    }
+}
+
+/// Shift-click and cmd-click handlers for a row.
+///
+/// `onTapGesture` carries no modifier information, so the two modified cases
+/// are attached as their own gestures. SwiftUI prefers the more specific match,
+/// leaving the plain tap for unmodified clicks.
+private struct ModifierClicks: ViewModifier {
+    let onShift: () -> Void
+    let onCommand: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .simultaneousGesture(
+                TapGesture().modifiers(.shift).onEnded(onShift)
+            )
+            .simultaneousGesture(
+                TapGesture().modifiers(.command).onEnded(onCommand)
+            )
     }
 }

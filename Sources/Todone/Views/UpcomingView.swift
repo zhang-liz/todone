@@ -105,7 +105,6 @@ struct UpcomingView: View {
 
     // MARK: - Blocks
 
-    @ViewBuilder
     /// Overdue first, then each shown day in order — matching the rendered list.
     private var visibleOrder: [UUID] {
         var ids = store.overdueTasks()
@@ -118,6 +117,7 @@ struct UpcomingView: View {
         return ids
     }
 
+    @ViewBuilder
     private var overdueBlock: some View {
         let overdue = store.overdueTasks().filter { !calendar.isDateInToday($0.dueDate ?? Date()) }
         if !overdue.isEmpty {

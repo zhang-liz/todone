@@ -191,6 +191,39 @@ import Testing
         #expect(s.filters.isEmpty)
     }
 
+    // MARK: Bulk actions
+
+    @Test func aBulkActionIsOneUndoStep() {
+        let s = makeStore()
+        let a = s.addTask(title: "a")
+        let b = s.addTask(title: "b")
+        let c = s.addTask(title: "c")
+
+        s.asSingleUndoStep {
+            for t in [a, b, c] { s.complete(t, now: now) }
+        }
+        #expect(s.tasks.allSatisfy(\.isCompleted))
+
+        s.undo()
+        #expect(s.tasks.allSatisfy { !$0.isCompleted })
+    }
+
+    @Test func nestedGroupingStillCollapsesToOneStep() {
+        let s = makeStore()
+        let a = s.addTask(title: "a")
+        let b = s.addTask(title: "b")
+
+        s.asSingleUndoStep {
+            s.asSingleUndoStep {
+                for t in [a, b] { s.deleteTask(t) }
+            }
+        }
+        #expect(s.tasks.isEmpty)
+
+        s.undo()
+        #expect(Set(s.tasks.map(\.title)) == ["a", "b"])
+    }
+
     // MARK: Erase is deliberately not undoable
 
     @Test func eraseAllClearsUndoHistory() {

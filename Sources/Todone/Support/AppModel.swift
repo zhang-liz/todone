@@ -19,7 +19,17 @@ enum SidebarItem: Hashable {
 @Observable
 final class AppModel {
     var selection: SidebarItem? = .today
-    var selectedTaskID: UUID?
+
+    /// Multi-row selection. `selectedTaskID` is the single-selection view of it,
+    /// so existing call sites keep working unchanged.
+    var taskSelection = MultiSelection()
+
+    var selectedTaskID: UUID? {
+        get { taskSelection.only }
+        set {
+            if let newValue { taskSelection.select(newValue) } else { taskSelection.clear() }
+        }
+    }
     var showQuickAdd = false
     var showSearch = false
     var searchText = ""
@@ -37,14 +47,32 @@ final class AppModel {
 
     func select(_ item: SidebarItem) {
         selection = item
-        selectedTaskID = nil
+        taskSelection.clear()
     }
 
-    /// Move the selection by `offset` through `visibleTaskIDs`. Holds position
-    /// at the ends rather than moving nowhere silently.
+    /// Move the selection by `offset` through `visibleTaskIDs`. Steps from the
+    /// anchor, so arrowing after a multi-row selection continues from the row
+    /// the user last clicked rather than starting over.
     func moveSelection(by offset: Int) {
-        if let next = ListNavigator.step(from: selectedTaskID, by: offset, in: visibleTaskIDs) {
-            selectedTaskID = next
+        if let next = ListNavigator.step(from: taskSelection.anchor, by: offset, in: visibleTaskIDs) {
+            taskSelection.select(next)
+        }
+    }
+
+    /// Extend the selection by one row, for shift-arrow.
+    func extendSelection(by offset: Int) {
+        guard let next = ListNavigator.step(from: taskSelection.anchor, by: offset, in: visibleTaskIDs) else { return }
+        taskSelection.extend(to: next, in: visibleTaskIDs)
+    }
+
+    /// Apply a click with its modifier keys.
+    func handleClick(on id: UUID, extending: Bool, toggling: Bool) {
+        if extending {
+            taskSelection.extend(to: id, in: visibleTaskIDs)
+        } else if toggling {
+            taskSelection.toggle(id)
+        } else {
+            taskSelection.select(id)
         }
     }
 }
