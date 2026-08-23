@@ -1,10 +1,10 @@
 # Todone
 
 A full-featured, native macOS clone of the Todoist Mac app. SwiftUI + an
-observable object graph persisted as a local JSON document. No accounts, no
-sync — your data stays in `~/Library/Application Support/Todone/todone.json`.
+observable object graph persisted as a local JSON document. No accounts and no
+sync, so your data stays in `~/Library/Application Support/Todone/todone.json`.
 
-![status](https://img.shields.io/badge/tests-86%20passing-brightgreen)
+![status](https://img.shields.io/badge/tests-141%20passing-brightgreen)
 
 ## Features
 
@@ -31,13 +31,31 @@ sync — your data stays in `~/Library/Application Support/Todone/todone.json`.
 - **Keyboard-first** — `q` quick add, `/` search, `t`/`u`/`i` view switching,
   `1–4` priority, `e` complete, global ⌥Space quick add from any app
 
-## Building
+## Install
 
-Requires macOS 14+ and Swift 6 (Command Line Tools are enough — no Xcode needed).
+Requires macOS 14 or later and Swift 6. Command Line Tools are enough, so you
+do not need Xcode.
 
 ```bash
-swift test              # run the 86-test suite
-Scripts/build-app.sh    # build → build/Todone.app
+git clone https://github.com/zhang-liz/todone.git
+cd todone
+Scripts/build-app.sh
+cp -r build/Todone.app /Applications/
+```
+
+The app is signed ad-hoc, not notarized, so macOS blocks it the first time you
+open it. To get past that, right-click Todone in Applications, choose **Open**,
+then click **Open** in the dialog. You only do this once.
+
+Tasks are stored in `~/Library/Application Support/Todone/todone.json`. There
+is no sync, so a fresh install on another Mac starts empty. To bring your tasks
+with you, copy that file across.
+
+## Development
+
+```bash
+swift test              # 141 tests
+Scripts/build-app.sh    # build -> build/Todone.app
 open build/Todone.app
 ```
 
@@ -49,6 +67,8 @@ open build/Todone.app
   `KarmaEngine`), all unit-tested
 - `Sources/Todone` — the SwiftUI app
 - `docs/superpowers/specs/` — design spec
+- `docs/STATUS.md` — what is built, test coverage, and where the app
+  deviates from the spec
 
 Todone is an unaffiliated clone built for personal use; it uses no Todoist
 assets or trademarks.
