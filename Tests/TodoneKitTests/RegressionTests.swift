@@ -298,6 +298,72 @@ import Testing
         #expect(store.projects.filter { !$0.isInbox }.allSatisfy { $0.isArchived })
     }
 
+    // MARK: Unarchiving
+
+    @Test func archivedProjectsAreListedSoTheyCanBeRecovered() {
+        let store = makeStore()
+        let keep = store.addProject(name: "Keep")
+        let gone = store.addProject(name: "Gone")
+        store.archiveProject(gone)
+
+        #expect(store.childProjects(of: nil).map(\.name) == ["Keep"])
+        #expect(store.archivedProjects.map(\.name) == ["Gone"])
+        _ = keep
+    }
+
+    @Test func unarchiveRestoresProjectAndItsTasks() {
+        let store = makeStore()
+        let p = store.addProject(name: "Old")
+        let t = store.addTask(title: "buried", projectID: p.id)
+        store.archiveProject(p)
+        #expect(store.childProjects(of: nil).isEmpty)
+
+        store.archiveProject(p, archived: false)
+        #expect(store.childProjects(of: nil).map(\.name) == ["Old"])
+        #expect(store.archivedProjects.isEmpty)
+        #expect(store.rootTasks(project: p.id, section: nil).map(\.title) == ["buried"])
+        _ = t
+    }
+
+    @Test func unarchiveCascadesToChildren() {
+        let store = makeStore()
+        let parent = store.addProject(name: "Parent")
+        let child = store.addProject(name: "Child", parentID: parent.id)
+        store.archiveProject(parent)
+        #expect(child.isArchived)
+
+        store.archiveProject(parent, archived: false)
+        #expect(!child.isArchived)
+        #expect(store.childProjects(of: parent.id).map(\.name) == ["Child"])
+    }
+
+    // Restoring a child alone used to leave it inside a still-archived parent,
+    // where childProjects(of: nil) never reaches it — hidden all over again.
+    @Test func unarchiveChildAlsoRestoresItsAncestors() {
+        let store = makeStore()
+        let parent = store.addProject(name: "Parent")
+        let child = store.addProject(name: "Child", parentID: parent.id)
+        store.archiveProject(parent)
+
+        store.archiveProject(child, archived: false)
+        #expect(!child.isArchived)
+        #expect(!parent.isArchived)
+        #expect(store.childProjects(of: nil).map(\.name) == ["Parent"])
+        #expect(store.childProjects(of: parent.id).map(\.name) == ["Child"])
+    }
+
+    @Test func unarchiveWithManualCycleTerminates() {
+        let store = makeStore()
+        let a = store.addProject(name: "A")
+        let b = store.addProject(name: "B", parentID: a.id)
+        store.archiveProject(a)
+        a.parentID = b.id  // corrupt store: parent cycle
+
+        store.archiveProject(b, archived: false)
+        #expect(!a.isArchived)
+        #expect(!b.isArchived)
+    }
+
     // MARK: Erase writes through immediately
 
     @Test func eraseAllPersistsImmediately() throws {

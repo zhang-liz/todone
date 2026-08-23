@@ -219,6 +219,14 @@ public final class AppStore {
             .sorted { $0.sortOrder < $1.sortOrder }
     }
 
+    /// Archived projects, flat. They are filtered out of `childProjects` and
+    /// every project picker, so this is the only way back to them.
+    public var archivedProjects: [Project] {
+        projects
+            .filter { $0.isArchived && !$0.isInbox }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
     /// The project plus every descendant, archived ones included. Callers that
     /// delete or check for cycles need the complete set; filter matching uses
     /// `liveDescendantProjectIDs` instead.
@@ -591,6 +599,17 @@ public final class AppStore {
         let affected = descendantProjectIDs(of: project.id)
         for p in projects where affected.contains(p.id) && !p.isInbox {
             p.isArchived = archived
+        }
+        // Unarchiving a child of an archived parent would otherwise restore it
+        // into a hidden branch, leaving it just as unreachable as before.
+        if !archived {
+            // Guarded against a parent cycle in a hand-edited or corrupt store.
+            var seen: Set<UUID> = [project.id]
+            var parentID = project.parentID
+            while let id = parentID, seen.insert(id).inserted, let parent = self.project(id) {
+                parent.isArchived = false
+                parentID = parent.parentID
+            }
         }
         scheduleSave()
     }

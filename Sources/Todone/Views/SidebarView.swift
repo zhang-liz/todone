@@ -45,6 +45,9 @@ struct SidebarView: View {
                 Label("Filters & Labels", systemImage: "square.grid.2x2")
                     .tag(SidebarItem.filtersAndLabels)
 
+                Label("Completed", systemImage: "checkmark.circle")
+                    .tag(SidebarItem.completed)
+
                 Label("Activity", systemImage: "clock.arrow.circlepath")
                     .tag(SidebarItem.activity)
             }
@@ -73,6 +76,28 @@ struct SidebarView: View {
                     }
                     .buttonStyle(.plain)
                     .help("Add project")
+                }
+            }
+
+            // Archived projects are hidden from every picker and project list,
+            // so without this section they — and their tasks — are unreachable.
+            let archived = store.archivedProjects
+            if !archived.isEmpty {
+                Section("Archived") {
+                    ForEach(archived) { project in
+                        Label {
+                            Text(project.name)
+                                .foregroundStyle(.secondary)
+                        } icon: {
+                            Image(systemName: "archivebox")
+                                .foregroundStyle(.secondary)
+                        }
+                        .tag(SidebarItem.project(project.id))
+                        .contextMenu {
+                            Button("Unarchive") { store.archiveProject(project, archived: false) }
+                            Button("Delete", role: .destructive) { store.deleteProject(project) }
+                        }
+                    }
                 }
             }
         }
