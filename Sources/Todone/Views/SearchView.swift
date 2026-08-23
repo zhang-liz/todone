@@ -34,11 +34,19 @@ struct SearchView: View {
                                 open(task)
                             } label: {
                                 HStack {
-                                    Circle()
-                                        .strokeBorder(task.priority.color, lineWidth: 1.5)
-                                        .frame(width: 14, height: 14)
+                                    if task.isCompleted {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(.secondary)
+                                            .frame(width: 14, height: 14)
+                                    } else {
+                                        Circle()
+                                            .strokeBorder(task.priority.color, lineWidth: 1.5)
+                                            .frame(width: 14, height: 14)
+                                    }
                                     VStack(alignment: .leading) {
                                         Text(task.title)
+                                            .strikethrough(task.isCompleted)
+                                            .foregroundStyle(task.isCompleted ? .secondary : .primary)
                                         if let p = store.project(task.projectID) {
                                             Text(p.isInbox ? "Inbox" : p.name)
                                                 .font(.caption)
@@ -85,9 +93,16 @@ struct SearchView: View {
     private var results: ([TodoTask], [Project]) {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
         guard !q.isEmpty else { return ([], []) }
-        let tasks = store.incompleteTasks
-            .filter { $0.title.lowercased().contains(q) || $0.details.lowercased().contains(q) }
-            .prefix(30)
+        func matches(_ t: TodoTask) -> Bool {
+            t.title.lowercased().contains(q) || t.details.lowercased().contains(q)
+        }
+        // Completed tasks are searchable but rank last, so finishing something
+        // does not make it unfindable while live results stay on top.
+        let open = store.incompleteTasks.filter(matches)
+        let done = store.tasks
+            .filter { $0.isCompleted && matches($0) }
+            .sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
+        let tasks = (open + done).prefix(30)
         let projects = store.projects
             .filter { !$0.isArchived && !$0.isInbox && $0.name.lowercased().contains(q) }
             .prefix(10)
@@ -95,7 +110,11 @@ struct SearchView: View {
     }
 
     private func open(_ task: TodoTask) {
-        if let p = store.project(task.projectID) {
+        if task.isCompleted {
+            // A project list hides completed tasks unless the toggle is on, so
+            // land somewhere the result is actually visible.
+            model.select(.completed)
+        } else if let p = store.project(task.projectID) {
             model.select(p.isInbox ? .inbox : .project(p.id))
         }
         model.selectedTaskID = task.id
