@@ -153,6 +153,7 @@ private struct BoardCard: View {
                     Circle()
                         .strokeBorder(task.priority.color, lineWidth: 1.5)
                         .frame(width: 16, height: 16)
+                        .contentShape(Circle()) // ring-only hit area otherwise
                 }
                 .buttonStyle(.plain)
 

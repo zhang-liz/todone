@@ -18,7 +18,6 @@ struct TaskRowView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             checkbox
-                .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(task.title)
@@ -78,6 +77,11 @@ struct TaskRowView: View {
                         .foregroundStyle(task.priority.color)
                 }
             }
+            // A stroked circle is only hit-testable on its ring, so clicks in
+            // the empty middle fell through to the row's tap gesture (select)
+            // instead of completing. Make the whole disc clickable.
+            .frame(width: 22, height: 22)
+            .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .help(task.recurrence != nil ? "Complete (advances recurrence)" : "Complete")
