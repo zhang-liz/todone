@@ -169,6 +169,12 @@ private struct TaskDetailForm: View {
                 }
             }
 
+            if task.dueDate != nil {
+                LabeledContent("Time") {
+                    DueTimeEditor(task: task)
+                }
+            }
+
             TextField("Or type a date — \"tomorrow 3pm\", \"every friday\"…", text: $dateText)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(applyDateText)

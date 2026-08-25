@@ -558,6 +558,36 @@ public final class AppStore {
         }
     }
 
+    /// Set the time of day on a task's due date. `nil` turns it back into an
+    /// all-day task. An undated task is placed on today.
+    public func setDueTime(_ task: TodoTask, to time: Date?, now: Date = Date()) {
+        updateTask(task) { t in
+            let day = t.dueDate ?? now
+            guard let time else {
+                t.dueDate = calendar.startOfDay(for: day)
+                t.hasDueTime = false
+                return
+            }
+            t.dueDate = Self.carryTime(from: time, onto: day, calendar: calendar)
+            t.hasDueTime = true
+        }
+    }
+
+    /// Give an all-day task a sensible first time: the next full hour when the
+    /// task is due today (capped at 23:00), otherwise 9:00.
+    public func addDefaultDueTime(_ task: TodoTask, now: Date = Date()) {
+        let day = task.dueDate ?? now
+        var comps = calendar.dateComponents([.year, .month, .day], from: day)
+        if calendar.isDate(day, inSameDayAs: now) {
+            comps.hour = min(23, calendar.component(.hour, from: now) + 1)
+        } else {
+            comps.hour = 9
+        }
+        comps.minute = 0
+        guard let time = calendar.date(from: comps) else { return }
+        setDueTime(task, to: time, now: now)
+    }
+
     /// Complete a task. Recurring tasks advance to the next occurrence instead
     /// of completing; karma and activity still count the completion.
     public func complete(_ task: TodoTask, now: Date = Date()) {

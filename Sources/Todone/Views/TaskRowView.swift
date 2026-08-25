@@ -337,6 +337,49 @@ struct TaskRowView: View {
     }
 }
 
+/// Inline due-time editor: a native time field (click the hour, minute, or
+/// AM/PM segment and type or use the arrows) with add/remove controls.
+struct DueTimeEditor: View {
+    @Environment(AppStore.self) private var store
+    let task: TodoTask
+
+    private var timeBinding: Binding<Date> {
+        Binding(
+            get: { task.dueDate ?? Date() },
+            set: { store.setDueTime(task, to: $0) }
+        )
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if task.hasDueTime {
+                Image(systemName: "clock")
+                    .foregroundStyle(.secondary)
+                DatePicker("Time", selection: timeBinding, displayedComponents: .hourAndMinute)
+                    .labelsHidden()
+                    .datePickerStyle(.stepperField)
+                    .help("Click the hour, minute, or AM/PM and type or use the arrows")
+                Button {
+                    store.setDueTime(task, to: nil)
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Remove time")
+            } else {
+                Button {
+                    store.addDefaultDueTime(task)
+                } label: {
+                    Label("Add time", systemImage: "clock.badge.plus")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
 /// Quick reschedule popover: Today / Tomorrow / Next week / date picker.
 struct SchedulePopover: View {
     @Environment(AppStore.self) private var store
@@ -367,6 +410,10 @@ struct SchedulePopover: View {
             DatePicker("Date", selection: $pickedDate, displayedComponents: .date)
                 .datePickerStyle(.graphical)
                 .frame(width: 220)
+            if task.dueDate != nil {
+                Divider()
+                DueTimeEditor(task: task)
+            }
             HStack {
                 Button("No Date") {
                     store.reschedule(task, toDay: nil)
