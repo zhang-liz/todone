@@ -21,6 +21,9 @@ struct SettingsView: View {
 private struct GeneralSettings: View {
     @AppStorage("startView") private var startView = "today"
     @AppStorage("badgeCount") private var badgeCount = true
+    @AppStorage(NotificationScheduler.notifyAtDueTimeKey) private var notifyAtDueTime = true
+
+    private var scheduler: NotificationScheduler { NotificationScheduler.shared }
 
     var body: some View {
         Form {
@@ -33,8 +36,41 @@ private struct GeneralSettings: View {
                 .onChange(of: badgeCount) {
                     NotificationScheduler.shared.refreshBadge()
                 }
+
+            Divider()
+
+            Toggle("Notify me when a task's due time arrives", isOn: $notifyAtDueTime)
+                .onChange(of: notifyAtDueTime) {
+                    NotificationScheduler.shared.rescheduleAll()
+                }
+            notificationStatus
         }
         .padding(20)
+        .onAppear { NotificationScheduler.shared.refreshAuthorization() }
+    }
+
+    @ViewBuilder
+    private var notificationStatus: some View {
+        switch scheduler.status {
+        case .authorized, .provisional:
+            Label("Notifications are on", systemImage: "checkmark.circle")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .notDetermined:
+            HStack {
+                Text("macOS has not been asked for permission yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("Enable notifications") { scheduler.requestAuthorization() }
+            }
+        default:
+            HStack {
+                Text("Notifications are off for Todone in System Settings.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("Open System Settings") { scheduler.openSystemSettings() }
+            }
+        }
     }
 }
 
