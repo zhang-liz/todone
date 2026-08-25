@@ -163,18 +163,11 @@ struct AppCommands: Commands {
 
     private func reschedule(to date: Date) {
         guard let id = model.selectedTaskID, let t = store.task(id) else { return }
-        store.updateTask(t) {
-            $0.dueDate = Calendar.current.startOfDay(for: date)
-            $0.hasDueTime = false
-        }
+        store.reschedule(t, toDay: date)
     }
 
     private func removeDueDate() {
         guard let id = model.selectedTaskID, let t = store.task(id) else { return }
-        store.updateTask(t) {
-            $0.dueDate = nil
-            $0.hasDueTime = false
-            $0.recurrence = nil
-        }
+        store.reschedule(t, toDay: nil)
     }
 }

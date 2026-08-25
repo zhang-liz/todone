@@ -26,6 +26,7 @@ private struct TaskDetailForm: View {
     @State private var details: String = ""
     @State private var dateText: String = ""
     @State private var dateFeedback: String?
+    @State private var showScheduler = false
 
     var body: some View {
         ScrollView {
@@ -135,33 +136,40 @@ private struct TaskDetailForm: View {
     private var dueDateEditor: some View {
         VStack(alignment: .leading, spacing: 6) {
             LabeledContent("Due") {
-                if let text = DueDateFormatter.text(for: task) {
-                    HStack(spacing: 6) {
-                        Text(text)
-                            .foregroundStyle(DueDateFormatter.color(for: task))
-                        if let r = task.recurrence {
-                            Label(r, systemImage: "arrow.triangle.2.circlepath")
-                                .font(.caption)
+                HStack(spacing: 6) {
+                    Button { showScheduler = true } label: {
+                        if let text = DueDateFormatter.text(for: task) {
+                            Label(text, systemImage: "calendar")
+                                .foregroundStyle(DueDateFormatter.color(for: task))
+                        } else {
+                            Label("Add date", systemImage: "calendar.badge.plus")
                                 .foregroundStyle(.secondary)
                         }
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Change due date")
+                    .popover(isPresented: $showScheduler) {
+                        SchedulePopover(task: task)
+                    }
+                    if let r = task.recurrence {
+                        Label(r, systemImage: "arrow.triangle.2.circlepath")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if task.dueDate != nil {
                         Button {
-                            store.updateTask(task) {
-                                $0.dueDate = nil
-                                $0.hasDueTime = false
-                                $0.recurrence = nil
-                            }
+                            store.reschedule(task, toDay: nil)
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
+                        .help("Remove due date")
                     }
-                } else {
-                    Text("No date").foregroundStyle(.secondary)
                 }
             }
 
-            TextField("Type a date — \"tomorrow 3pm\", \"every friday\"…", text: $dateText)
+            TextField("Or type a date — \"tomorrow 3pm\", \"every friday\"…", text: $dateText)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(applyDateText)
 

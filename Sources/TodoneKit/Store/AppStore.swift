@@ -538,6 +538,26 @@ public final class AppStore {
         onRemindersChanged?()
     }
 
+    /// Move a task to another day. A task with a due time keeps that time of
+    /// day; an all-day task stays all-day. `nil` clears the date, time, and
+    /// any recurrence.
+    public func reschedule(_ task: TodoTask, toDay day: Date?) {
+        updateTask(task) { t in
+            guard let day else {
+                t.dueDate = nil
+                t.hasDueTime = false
+                t.recurrence = nil
+                return
+            }
+            if t.hasDueTime, let due = t.dueDate {
+                t.dueDate = Self.carryTime(from: due, onto: day, calendar: calendar)
+            } else {
+                t.dueDate = calendar.startOfDay(for: day)
+                t.hasDueTime = false
+            }
+        }
+    }
+
     /// Complete a task. Recurring tasks advance to the next occurrence instead
     /// of completing; karma and activity still count the completion.
     public func complete(_ task: TodoTask, now: Date = Date()) {

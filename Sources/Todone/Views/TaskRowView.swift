@@ -112,13 +112,18 @@ struct TaskRowView: View {
     private var metaLine: some View {
         HStack(spacing: 8) {
             if let dueText = DueDateFormatter.text(for: task) {
-                HStack(spacing: 3) {
-                    Image(systemName: task.recurrence != nil ? "arrow.triangle.2.circlepath" : "calendar")
-                        .font(.system(size: 9))
-                    Text(dueText)
+                Button { showScheduler = true } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: task.recurrence != nil ? "arrow.triangle.2.circlepath" : "calendar")
+                            .font(.system(size: 9))
+                        Text(dueText)
+                    }
+                    .font(.caption)
+                    .foregroundStyle(DueDateFormatter.color(for: task))
+                    .contentShape(Rectangle())
                 }
-                .font(.caption)
-                .foregroundStyle(DueDateFormatter.color(for: task))
+                .buttonStyle(.plain)
+                .help("Change due date")
             }
 
             ForEach(task.labelIDs, id: \.self) { id in
@@ -338,10 +343,21 @@ struct SchedulePopover: View {
     @Environment(\.dismiss) private var dismiss
 
     let task: TodoTask
-    @State private var pickedDate = Date()
+    @State private var pickedDate: Date
+
+    init(task: TodoTask) {
+        self.task = task
+        _pickedDate = State(initialValue: task.dueDate ?? Date())
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
+            if let text = DueDateFormatter.text(for: task) {
+                Text("Due \(text)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Divider()
+            }
             quickButton("Today", icon: "calendar", date: Date())
             quickButton("Tomorrow", icon: "sun.max",
                         date: Calendar.current.date(byAdding: .day, value: 1, to: Date()))
@@ -353,19 +369,12 @@ struct SchedulePopover: View {
                 .frame(width: 220)
             HStack {
                 Button("No Date") {
-                    store.updateTask(task) {
-                        $0.dueDate = nil
-                        $0.hasDueTime = false
-                        $0.recurrence = nil
-                    }
+                    store.reschedule(task, toDay: nil)
                     dismiss()
                 }
                 Spacer()
                 Button("Set") {
-                    store.updateTask(task) {
-                        $0.dueDate = Calendar.current.startOfDay(for: pickedDate)
-                        $0.hasDueTime = false
-                    }
+                    store.reschedule(task, toDay: pickedDate)
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
@@ -377,10 +386,7 @@ struct SchedulePopover: View {
     private func quickButton(_ title: String, icon: String, date: Date?) -> some View {
         Button {
             if let date {
-                store.updateTask(task) {
-                    $0.dueDate = Calendar.current.startOfDay(for: date)
-                    $0.hasDueTime = false
-                }
+                store.reschedule(task, toDay: date)
             }
             dismiss()
         } label: {
