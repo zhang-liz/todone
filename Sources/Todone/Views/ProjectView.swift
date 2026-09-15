@@ -277,11 +277,19 @@ struct SectionHeaderView: View {
             }
         }
         // Dropping a section onto this header inserts it before this section.
+        // Dropping a task onto it moves the task to the top of this section.
         .dropDestination(for: String.self) { items, _ in
-            guard let dragged = SectionDrag.section(from: items, in: store),
-                  dragged.id != section.id,
-                  dragged.projectID == section.projectID else { return false }
-            store.reorderSection(dragged, before: section)
+            if let dragged = SectionDrag.section(from: items, in: store) {
+                guard dragged.id != section.id,
+                      dragged.projectID == section.projectID else { return false }
+                store.reorderSection(dragged, before: section)
+                return true
+            }
+            guard let idString = items.first, let id = UUID(uuidString: idString),
+                  let task = store.task(id) else { return false }
+            let first = store.rootTasks(project: section.projectID, section: section.id).first
+            guard first?.id != task.id else { return false }
+            store.reorder(task, before: first, project: section.projectID, section: section.id)
             return true
         }
     }
