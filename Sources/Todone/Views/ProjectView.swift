@@ -1,6 +1,21 @@
 import SwiftUI
 import TodoneKit
 
+/// Drag payloads are plain strings: a bare task UUID, or a section UUID with
+/// this prefix so task and section drops can be told apart.
+enum SectionDrag {
+    static let prefix = "section:"
+
+    static func payload(_ section: ProjectSection) -> String { prefix + section.id.uuidString }
+
+    /// The section a dropped payload refers to, or nil when it is not a section.
+    static func section(from items: [String], in store: AppStore) -> ProjectSection? {
+        guard let raw = items.first, raw.hasPrefix(prefix),
+              let id = UUID(uuidString: String(raw.dropFirst(prefix.count))) else { return nil }
+        return store.section(id)
+    }
+}
+
 /// A project's task list (list or board style) with sections and inline add.
 struct ProjectView: View {
     @Environment(AppStore.self) private var store
@@ -70,6 +85,13 @@ struct ProjectView: View {
                 .buttonStyle(.plain)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
+                // Dropping a section here moves it to the end of the project.
+                .dropDestination(for: String.self) { items, _ in
+                    guard let dragged = SectionDrag.section(from: items, in: store),
+                          dragged.projectID == projectID else { return false }
+                    store.reorderSection(dragged, before: nil)
+                    return true
+                }
 
                 if showCompleted {
                     completedList
@@ -210,6 +232,8 @@ struct TaskGroupView: View {
     }
 
     private func handleDrop(_ items: [String], before: TodoTask?) -> Bool {
+        // Section payloads carry a prefix and never parse as a UUID, so they
+        // fall through here and are handled by the section header instead.
         guard let idString = items.first, let id = UUID(uuidString: idString),
               let task = store.task(id), task.id != before?.id else { return false }
         store.reorder(task, before: before, project: projectID, section: sectionID)
@@ -241,9 +265,30 @@ struct SectionHeaderView: View {
 
     @State private var name = ""
 
+    private var isRenaming: Bool { renaming?.id == section.id }
+
     var body: some View {
+        Group {
+            if isRenaming {
+                header
+            } else {
+                // Drag the header to reorder; its tasks follow by section ID.
+                header.draggable(SectionDrag.payload(section))
+            }
+        }
+        // Dropping a section onto this header inserts it before this section.
+        .dropDestination(for: String.self) { items, _ in
+            guard let dragged = SectionDrag.section(from: items, in: store),
+                  dragged.id != section.id,
+                  dragged.projectID == section.projectID else { return false }
+            store.reorderSection(dragged, before: section)
+            return true
+        }
+    }
+
+    private var header: some View {
         HStack {
-            if renaming?.id == section.id {
+            if isRenaming {
                 TextField("Section name", text: $name)
                     .textFieldStyle(.plain)
                     .font(.headline)
@@ -276,6 +321,7 @@ struct SectionHeaderView: View {
         .padding(.horizontal, 20)
         .padding(.top, 16)
         .padding(.bottom, 4)
+        .contentShape(Rectangle())
     }
 }
 

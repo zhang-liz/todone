@@ -157,6 +157,51 @@ import Testing
         _ = b
     }
 
+    @Test func reorderSectionPlacesSectionBeforeTarget() {
+        let store = makeStore()
+        let p = store.addProject(name: "P")
+        let a = store.addSection(name: "a", projectID: p.id)
+        let b = store.addSection(name: "b", projectID: p.id)
+        let c = store.addSection(name: "c", projectID: p.id)
+
+        store.reorderSection(c, before: a)
+        #expect(store.sections(in: p.id).map(\.name) == ["c", "a", "b"])
+        _ = b
+    }
+
+    @Test func reorderSectionToEndKeepsTasksAttached() {
+        let store = makeStore()
+        let p = store.addProject(name: "P")
+        let a = store.addSection(name: "a", projectID: p.id)
+        let b = store.addSection(name: "b", projectID: p.id)
+        let t1 = store.addTask(title: "one", projectID: p.id, sectionID: a.id)
+        let t2 = store.addTask(title: "two", projectID: p.id, sectionID: a.id)
+
+        store.reorderSection(a, before: nil)
+        #expect(store.sections(in: p.id).map(\.name) == ["b", "a"])
+        #expect(store.rootTasks(project: p.id, section: a.id).map(\.title) == ["one", "two"])
+        #expect(t1.sectionID == a.id)
+        #expect(t2.sectionID == a.id)
+    }
+
+    @Test func reorderSectionIsOneUndoStepAndIgnoresOtherProjects() {
+        let store = makeStore()
+        let p = store.addProject(name: "P")
+        let q = store.addProject(name: "Q")
+        let a = store.addSection(name: "a", projectID: p.id)
+        let b = store.addSection(name: "b", projectID: p.id)
+        let other = store.addSection(name: "other", projectID: q.id)
+
+        store.reorderSection(b, before: a)
+        #expect(store.sections(in: p.id).map(\.name) == ["b", "a"])
+        store.undo()
+        #expect(store.sections(in: p.id).map(\.name) == ["a", "b"])
+
+        store.reorderSection(a, before: other)
+        #expect(store.sections(in: p.id).map(\.name) == ["a", "b"])
+        #expect(store.sections(in: q.id).map(\.name) == ["other"])
+    }
+
     @Test func moveTaskMovesSubtasks() {
         let store = makeStore()
         let p1 = store.addProject(name: "One")

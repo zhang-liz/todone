@@ -6,14 +6,14 @@ sync, so your data stays in `~/Library/Application Support/Todone/todone.json`.
 
 [![Download for macOS](https://img.shields.io/badge/Download%20for%20macOS-.dmg-0A84FF?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/zhang-liz/todone/releases/latest)
 
-![status](https://img.shields.io/badge/tests-248%20passing-brightgreen)
+![status](https://img.shields.io/badge/tests-251%20passing-brightgreen)
 [![release](https://img.shields.io/github/v/release/zhang-liz/todone?display_name=tag)](https://github.com/zhang-liz/todone/releases/latest)
 
 ## Features
 
 - **Tasks** — priorities (P1–P4), descriptions, subtasks (nested), labels,
   reminders, drag-reorder
-- **Projects** — colors, nesting, favorites, archive, sections, list *and*
+- **Projects** — colors, nesting, favorites, archive, drag-reorderable sections, list *and*
   kanban board views
 - **Views** — Inbox, Today (with overdue + "reschedule all"), Upcoming
   (date-grouped with month strip), per-label and per-filter lists
@@ -66,7 +66,7 @@ cp -r build/Todone.app /Applications/
 ## Development
 
 ```bash
-swift test              # 248 tests
+swift test              # 251 tests
 Scripts/build-app.sh    # build -> build/Todone.app
 open build/Todone.app
 ```

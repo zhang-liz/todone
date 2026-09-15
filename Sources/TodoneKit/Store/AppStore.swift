@@ -778,6 +778,24 @@ public final class AppStore {
         return s
     }
 
+    /// Reorder sections within a project: place `section` before `target`
+    /// (or at the end when `target` is nil). Tasks stay attached to their
+    /// section by ID, so they travel with it.
+    public func reorderSection(_ section: ProjectSection, before target: ProjectSection?) {
+        // Resolve by ID: callers may hold objects from before an undo replaced them.
+        guard let section = self.section(section.id), section.id != target?.id else { return }
+        let target = target.flatMap { self.section($0.id) }
+        if let target, target.projectID != section.projectID { return }
+        checkpoint()
+        var siblings = sections(in: section.projectID).filter { $0.id != section.id }
+        let index = target.flatMap { t in siblings.firstIndex(where: { $0.id == t.id }) } ?? siblings.count
+        siblings.insert(section, at: index)
+        for (i, s) in siblings.enumerated() {
+            s.sortOrder = Double(i)
+        }
+        scheduleSave()
+    }
+
     public func deleteSection(_ section: ProjectSection) {
         checkpoint()
         // Tasks in the section fall back to the project body.

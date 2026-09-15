@@ -31,6 +31,13 @@ struct BoardView: View {
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
         .frame(width: 200, alignment: .leading)
+        // Dropping a section column here moves it to the end.
+        .dropDestination(for: String.self) { items, _ in
+            guard let dragged = SectionDrag.section(from: items, in: store),
+                  dragged.projectID == projectID else { return false }
+            store.reorderSection(dragged, before: nil)
+            return true
+        }
     }
 }
 
@@ -94,6 +101,13 @@ private struct BoardColumn: View {
         .frame(width: 260)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
         .dropDestination(for: String.self) { items, _ in
+            // A dragged section column lands before this column.
+            if let dragged = SectionDrag.section(from: items, in: store) {
+                guard let section, dragged.id != section.id,
+                      dragged.projectID == projectID else { return false }
+                store.reorderSection(dragged, before: section)
+                return true
+            }
             guard let idString = items.first, let id = UUID(uuidString: idString),
                   let task = store.task(id) else { return false }
             store.reorder(task, before: nil, project: projectID, section: section?.id)
@@ -101,7 +115,17 @@ private struct BoardColumn: View {
         }
     }
 
+    @ViewBuilder
     private var header: some View {
+        if let section {
+            // Drag the column header to reorder sections; cards follow.
+            headerContent.draggable(SectionDrag.payload(section))
+        } else {
+            headerContent
+        }
+    }
+
+    private var headerContent: some View {
         HStack {
             Text(section?.name ?? "(No section)")
                 .font(.headline)
@@ -122,6 +146,7 @@ private struct BoardColumn: View {
                 .frame(width: 24)
             }
         }
+        .contentShape(Rectangle())
     }
 
     private func submit() {
