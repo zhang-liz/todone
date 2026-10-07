@@ -85,12 +85,7 @@ struct TodayView: View {
         .onChange(of: (overdue + today).map(\.id)) { _, ids in
             model.visibleTaskIDs = ids
         }
-        .inspector(isPresented: Binding(
-            get: { model.selectedTaskID != nil },
-            set: { if !$0 { model.selectedTaskID = nil } }
-        )) {
-            TaskDetailView()
-        }
+        .taskDetailPanel()
     }
 
     private var todayHeader: String {

@@ -44,12 +44,7 @@ struct ProjectView: View {
         .onAppear { model.visibleTaskIDs = visibleOrder }
         .onChange(of: visibleOrder) { _, ids in model.visibleTaskIDs = ids }
         .toolbar { toolbarContent }
-        .inspector(isPresented: Binding(
-            get: { model.selectedTaskID != nil },
-            set: { if !$0 { model.selectedTaskID = nil } }
-        )) {
-            TaskDetailView()
-        }
+        .taskDetailPanel()
     }
 
     /// Task IDs in the order the list renders them: unsectioned first, then each

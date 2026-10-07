@@ -42,10 +42,7 @@ struct TodoneApp: App {
                 .environment(\.appTheme, theme)
                 .tint(theme.accent)
                 .preferredColorScheme(appearance.colorScheme)
-                // Opening the task inspector in a narrow window (900pt and below
-                // in testing) makes macOS 27 loop on constraint passes and abort.
-                // 1000pt leaves room for sidebar, list, and inspector.
-                .frame(minWidth: 1000, minHeight: 500)
+                .frame(minWidth: 800, minHeight: 500)
         }
         .defaultSize(width: 1100, height: 700)
         .commands { AppCommands(store: store, model: model) }

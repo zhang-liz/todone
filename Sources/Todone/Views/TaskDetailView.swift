@@ -7,17 +7,41 @@ struct TaskDetailView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        Group {
-            if let id = model.selectedTaskID, let task = store.task(id) {
-                TaskDetailForm(task: task)
-                    .id(task.id)
-            } else {
-                ContentUnavailableView("No task selected", systemImage: "square.dashed")
+        if let id = model.selectedTaskID, let task = store.task(id) {
+            TaskDetailForm(task: task)
+                .id(task.id)
+        } else {
+            ContentUnavailableView("No task selected", systemImage: "square.dashed")
+        }
+    }
+}
+
+/// Shows `TaskDetailView` beside the content while a task is selected.
+///
+/// This replaces SwiftUI's `.inspector`. On macOS 27 the inspector's split
+/// view loops on constraint passes and aborts when it opens in a narrow
+/// window, so the panel is laid out with a plain stack instead.
+private struct TaskDetailPanel: ViewModifier {
+    @Environment(AppModel.self) private var model
+
+    func body(content: Content) -> some View {
+        HStack(spacing: 0) {
+            content
+                .frame(maxWidth: .infinity)
+            if model.selectedTaskID != nil {
+                Divider()
+                TaskDetailView()
+                    .frame(width: 320)
+                    .transition(.move(edge: .trailing))
             }
         }
-        // Keep the inspector's width bounded so it fits beside the list in
-        // the minimum window width set in TodoneApp.
-        .inspectorColumnWidth(min: 280, ideal: 320, max: 480)
+        .animation(.easeOut(duration: 0.2), value: model.selectedTaskID != nil)
+    }
+}
+
+extension View {
+    func taskDetailPanel() -> some View {
+        modifier(TaskDetailPanel())
     }
 }
 

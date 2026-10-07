@@ -136,12 +136,7 @@ struct FilterTasksView: View {
         .navigationTitle(filter.name)
         .onAppear { model.visibleTaskIDs = matchingIDs }
         .onChange(of: matchingIDs) { _, ids in model.visibleTaskIDs = ids }
-        .inspector(isPresented: Binding(
-            get: { model.selectedTaskID != nil },
-            set: { if !$0 { model.selectedTaskID = nil } }
-        )) {
-            TaskDetailView()
-        }
+        .taskDetailPanel()
     }
 
     private var parseResult: Result<FilterExpr, FilterParseError> {
@@ -187,12 +182,7 @@ struct LabelTasksView: View {
         .navigationTitle("@\(label.name)")
         .onAppear { model.visibleTaskIDs = tasks.map(\.id) }
         .onChange(of: tasks.map(\.id)) { _, ids in model.visibleTaskIDs = ids }
-        .inspector(isPresented: Binding(
-            get: { model.selectedTaskID != nil },
-            set: { if !$0 { model.selectedTaskID = nil } }
-        )) {
-            TaskDetailView()
-        }
+        .taskDetailPanel()
     }
 }
 
