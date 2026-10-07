@@ -15,9 +15,8 @@ struct TaskDetailView: View {
                 ContentUnavailableView("No task selected", systemImage: "square.dashed")
             }
         }
-        // Without an explicit width the inspector column tracks the form's
-        // min size. The form's size settles during AppKit's constraint pass,
-        // and on macOS 27 the resulting re-invalidation throws and aborts.
+        // Keep the inspector's width bounded so it fits beside the list in
+        // the minimum window width set in TodoneApp.
         .inspectorColumnWidth(min: 280, ideal: 320, max: 480)
     }
 }
