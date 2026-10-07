@@ -7,12 +7,18 @@ struct TaskDetailView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        if let id = model.selectedTaskID, let task = store.task(id) {
-            TaskDetailForm(task: task)
-                .id(task.id)
-        } else {
-            ContentUnavailableView("No task selected", systemImage: "square.dashed")
+        Group {
+            if let id = model.selectedTaskID, let task = store.task(id) {
+                TaskDetailForm(task: task)
+                    .id(task.id)
+            } else {
+                ContentUnavailableView("No task selected", systemImage: "square.dashed")
+            }
         }
+        // Without an explicit width the inspector column tracks the form's
+        // min size. The form's size settles during AppKit's constraint pass,
+        // and on macOS 27 the resulting re-invalidation throws and aborts.
+        .inspectorColumnWidth(min: 280, ideal: 320, max: 480)
     }
 }
 
