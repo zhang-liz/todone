@@ -26,12 +26,14 @@ private struct TaskDetailPanel: ViewModifier {
 
     func body(content: Content) -> some View {
         HStack(spacing: 0) {
+            // The list keeps a readable width; the panel gives way first.
             content
-                .frame(maxWidth: .infinity)
+                .frame(minWidth: 300, maxWidth: .infinity)
+                .layoutPriority(1)
             if model.selectedTaskID != nil {
                 Divider()
                 TaskDetailView()
-                    .frame(width: 320)
+                    .frame(minWidth: 260, idealWidth: 320, maxWidth: 320)
                     .transition(.move(edge: .trailing))
             }
         }

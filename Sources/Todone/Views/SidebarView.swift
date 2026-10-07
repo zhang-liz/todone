@@ -27,6 +27,7 @@ struct SidebarView: View {
                     Image(systemName: "tray")
                 }
                 .tag(SidebarItem.inbox)
+                .dropsTask(intoProject: store.inbox.id, store: store)
 
                 Label {
                     HStack {
@@ -38,6 +39,7 @@ struct SidebarView: View {
                     Image(systemName: "calendar")
                 }
                 .tag(SidebarItem.today)
+                .dropsTask(onDay: Date(), store: store)
 
                 Label("Upcoming", systemImage: "calendar.badge.clock")
                     .tag(SidebarItem.upcoming)
@@ -189,6 +191,7 @@ struct SidebarView: View {
         }
         .padding(.leading, CGFloat(depth) * 14)
         .tag(SidebarItem.project(project.id))
+        .dropsTask(intoProject: project.id, store: store)
         .contextMenu {
             Button("Edit") { editingProject = project }
             Button(project.isFavorite ? "Remove from Favorites" : "Add to Favorites") {

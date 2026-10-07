@@ -42,7 +42,8 @@ struct TodoneApp: App {
                 .environment(\.appTheme, theme)
                 .tint(theme.accent)
                 .preferredColorScheme(appearance.colorScheme)
-                .frame(minWidth: 800, minHeight: 500)
+                // Fits the widest sidebar, a 300pt list, and a 260pt task panel.
+                .frame(minWidth: 900, minHeight: 500)
         }
         .defaultSize(width: 1100, height: 700)
         .commands { AppCommands(store: store, model: model) }

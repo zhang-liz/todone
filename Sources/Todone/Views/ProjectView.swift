@@ -16,6 +16,36 @@ enum SectionDrag {
     }
 }
 
+/// Task drag payloads are the bare task UUID string.
+enum TaskDrag {
+    static func task(from items: [String], in store: AppStore) -> TodoTask? {
+        guard let raw = items.first, let id = UUID(uuidString: raw) else { return nil }
+        return store.task(id)
+    }
+}
+
+extension View {
+    /// Accept a dropped task and move it to `day`, keeping any time of day.
+    func dropsTask(onDay day: Date, store: AppStore) -> some View {
+        dropDestination(for: String.self) { items, _ in
+            guard let task = TaskDrag.task(from: items, in: store) else { return false }
+            if let due = task.dueDate, store.calendar.isDate(due, inSameDayAs: day) { return false }
+            store.reschedule(task, toDay: day)
+            return true
+        }
+    }
+
+    /// Accept a dropped task and move it to the top level of `projectID`.
+    func dropsTask(intoProject projectID: UUID, store: AppStore) -> some View {
+        dropDestination(for: String.self) { items, _ in
+            guard let task = TaskDrag.task(from: items, in: store),
+                  task.projectID != projectID || task.sectionID != nil else { return false }
+            store.move(task, toProject: projectID, section: nil)
+            return true
+        }
+    }
+}
+
 /// A project's task list (list or board style) with sections and inline add.
 struct ProjectView: View {
     @Environment(AppStore.self) private var store

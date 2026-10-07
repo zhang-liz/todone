@@ -96,6 +96,7 @@ struct UpcomingView: View {
             )
         }
         .buttonStyle(.plain)
+        .dropsTask(onDay: day, store: store)
     }
 
     // MARK: - Blocks
@@ -134,6 +135,7 @@ struct UpcomingView: View {
 
             ForEach(overdue) { task in
                 TaskRowView(task: task, showsProject: true)
+                    .draggable(task.id.uuidString)
                     .padding(.horizontal, 20)
                 Divider().padding(.leading, 48)
             }
@@ -151,6 +153,7 @@ struct UpcomingView: View {
 
             ForEach(tasks) { task in
                 TaskRowView(task: task, showsProject: true)
+                    .draggable(task.id.uuidString)
                     .padding(.horizontal, 20)
                 Divider().padding(.leading, 48)
             }
@@ -174,6 +177,7 @@ struct UpcomingView: View {
                 .padding(.vertical, 6)
             }
         }
+        .dropsTask(onDay: day, store: store)
     }
 
     private func headerText(_ day: Date) -> String {

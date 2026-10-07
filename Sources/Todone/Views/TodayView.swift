@@ -34,49 +34,55 @@ struct TodayView: View {
 
                     ForEach(overdue) { task in
                         TaskRowView(task: task, showsProject: true)
+                            .draggable(task.id.uuidString)
                             .padding(.horizontal, 20)
                         Divider().padding(.leading, 48)
                     }
                 }
 
-                HStack {
-                    Text(todayHeader)
-                        .font(.headline)
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-
-                if today.isEmpty && overdue.isEmpty {
-                    ContentUnavailableView {
-                        Label("All clear", systemImage: "checkmark.circle")
-                    } description: {
-                        Text("Enjoy your day — nothing due today.")
+                // Dropping a task anywhere in the Today block makes it due today.
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text(todayHeader)
+                            .font(.headline)
+                        Spacer()
                     }
-                    .padding(.top, 60)
-                } else {
-                    ForEach(today) { task in
-                        TaskRowView(task: task, showsProject: true)
-                            .padding(.horizontal, 20)
-                        Divider().padding(.leading, 48)
-                    }
-                }
-
-                if adding {
-                    TodayInlineAdd(isPresented: $adding)
-                        .padding(.horizontal, 20)
-                } else {
-                    Button {
-                        adding = true
-                    } label: {
-                        Label("Add task", systemImage: "plus")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
                     .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
+                    .padding(.top, 16)
+
+                    if today.isEmpty && overdue.isEmpty {
+                        ContentUnavailableView {
+                            Label("All clear", systemImage: "checkmark.circle")
+                        } description: {
+                            Text("Enjoy your day — nothing due today.")
+                        }
+                        .padding(.top, 60)
+                    } else {
+                        ForEach(today) { task in
+                            TaskRowView(task: task, showsProject: true)
+                                .draggable(task.id.uuidString)
+                                .padding(.horizontal, 20)
+                            Divider().padding(.leading, 48)
+                        }
+                    }
+
+                    if adding {
+                        TodayInlineAdd(isPresented: $adding)
+                            .padding(.horizontal, 20)
+                    } else {
+                        Button {
+                            adding = true
+                        } label: {
+                            Label("Add task", systemImage: "plus")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                    }
                 }
+                .dropsTask(onDay: Date(), store: store)
             }
             .padding(.vertical, 8)
         }

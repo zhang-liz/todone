@@ -118,6 +118,7 @@ struct FilterTasksView: View {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(tasks) { task in
                                 TaskRowView(task: task, showsProject: true)
+                                    .draggable(task.id.uuidString)
                                     .padding(.horizontal, 20)
                                 Divider().padding(.leading, 48)
                             }
@@ -171,6 +172,7 @@ struct LabelTasksView: View {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(tasks) { task in
                             TaskRowView(task: task, showsProject: true)
+                                .draggable(task.id.uuidString)
                                 .padding(.horizontal, 20)
                             Divider().padding(.leading, 48)
                         }
