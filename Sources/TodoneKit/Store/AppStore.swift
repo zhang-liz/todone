@@ -506,7 +506,7 @@ public final class AppStore {
         var anchorDay: Int?
         if let due = dueDate, let text = recurrence,
            let rule = RecurrenceRule.deserialize(text, calendar: calendar),
-           rule.unit == .month, rule.monthDay == nil {
+           rule.unit == .month || rule.unit == .year, rule.monthDay == nil {
             anchorDay = calendar.component(.day, from: due)
         }
         let task = TodoTask(title: title, details: details, priority: priority,
@@ -651,7 +651,7 @@ public final class AppStore {
             // A strict rule counts from the completion date, so it has no fixed day.
             let baseDay = calendar.component(.day, from: base)
             let anchorDay = rule.strict ? baseDay : task.recurrenceAnchorDay ?? baseDay
-            if !rule.strict, task.recurrenceAnchorDay == nil, rule.unit == .month, rule.monthDay == nil {
+            if !rule.strict, task.recurrenceAnchorDay == nil, rule.unit == .month || rule.unit == .year, rule.monthDay == nil {
                 task.recurrenceAnchorDay = anchorDay
             }
             if var next = rule.nextOccurrence(after: base, calendar: calendar, anchorDay: anchorDay) {
