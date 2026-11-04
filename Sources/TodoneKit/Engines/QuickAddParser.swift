@@ -92,9 +92,11 @@ public struct QuickAddParser {
         // 1. Symbol tokens: #project, #"project", /section, @label.
         let symbolPatterns: [(String, QuickAddToken.Kind)] = [
             (##"(?<=^|\s)#"([^"]+)""##, .project),
-            (##"(?<=^|\s)#([^\s#/@"]+)"##, .project),
+            // All digits is an issue number ("Fix issue #42"), not a project.
+            (##"(?<=^|\s)#(?!\d+(?:\s|$))([^\s#/@"]+)"##, .project),
             (##"(?<=^|\s)/"([^"]+)""##, .section),
-            (##"(?<=^|\s)/([^\s#/@"]+)"##, .section),
+            // Must end at a space, so "/etc/hosts" stays in the title.
+            (##"(?<=^|\s)/([^\s#/@"]+)(?=\s|$)"##, .section),
             (##"(?<=^|\s)@([^\s#/@"]+)"##, .label),
         ]
         for (pattern, kind) in symbolPatterns {

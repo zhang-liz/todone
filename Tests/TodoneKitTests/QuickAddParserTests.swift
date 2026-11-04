@@ -137,4 +137,53 @@ import Testing
         #expect(r.dueDate == day(2026, 8, 15, 9))
         #expect(r.hasDueTime)
     }
+
+    // MARK: Text that only looks like a token
+
+    @Test func aNameIsNotTomorrow() {
+        let r = parser.parse("Call Tom about budget")
+        #expect(r.dueDate == nil)
+        #expect(r.title == "Call Tom about budget")
+    }
+
+    @Test func anEmailIsNotTomorrow() {
+        let r = parser.parse("email tom@example.com")
+        #expect(r.dueDate == nil)
+        #expect(r.title == "email tom@example.com")
+    }
+
+    @Test func aLowercaseNameBeforeADateStaysInTheTitle() {
+        let r = parser.parse("call tom monday")
+        #expect(r.dueDate == day(2026, 7, 27))
+        #expect(r.title == "call tom")
+    }
+
+    @Test func trailingTomStillMeansTomorrow() {
+        #expect(parser.parse("pay rent tom").dueDate == day(2026, 7, 23))
+        #expect(parser.parse("pay rent tom 5pm").dueDate == day(2026, 7, 23, 17))
+    }
+
+    @Test func anIssueNumberIsNotAProject() {
+        let r = parser.parse("Fix issue #42")
+        #expect(r.projectName == nil)
+        #expect(r.title == "Fix issue #42")
+    }
+
+    @Test func aPathIsNotASection() {
+        let r = parser.parse("edit /etc/hosts file")
+        #expect(r.sectionName == nil)
+        #expect(r.title == "edit /etc/hosts file")
+    }
+
+    @Test func aFractionBeforeAUnitIsNotADate() {
+        let r = parser.parse("buy 1/2 cup sugar")
+        #expect(r.dueDate == nil)
+        #expect(r.title == "buy 1/2 cup sugar")
+    }
+
+    @Test func aDateInsideAURLIsIgnored() {
+        let r = parser.parse("read https://blog.example.com/2025/10/12/post tomorrow")
+        #expect(r.dueDate == day(2026, 7, 23))
+        #expect(r.title == "read https://blog.example.com/2025/10/12/post")
+    }
 }
