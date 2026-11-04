@@ -695,7 +695,14 @@ public final class AppStore {
     }
 
     public func move(_ task: TodoTask, toProject projectID: UUID, section sectionID: UUID?) {
-        checkpoint()
+        asSingleUndoStep {
+            moveWithoutCheckpoint(task, toProject: projectID, section: sectionID)
+        }
+    }
+
+    /// The move recurses into subtasks, so the checkpoint is taken once by the
+    /// caller rather than once per subtask.
+    private func moveWithoutCheckpoint(_ task: TodoTask, toProject projectID: UUID, section sectionID: UUID?) {
         let changingBucket = task.projectID != projectID || task.sectionID != sectionID
         task.projectID = projectID
         task.sectionID = sectionID
@@ -715,7 +722,7 @@ public final class AppStore {
         }
         // Moving a parent moves its subtasks.
         for sub in tasks where sub.parentID == task.id {
-            move(sub, toProject: projectID, section: sectionID)
+            moveWithoutCheckpoint(sub, toProject: projectID, section: sectionID)
         }
         scheduleSave()
     }

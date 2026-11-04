@@ -256,4 +256,21 @@ import Testing
         reloaded.load(from: url)
         #expect(reloaded.tasks.map(\.title) == ["keep"])
     }
+
+    // Each subtask used to add its own undo step, so one press left the parent
+    // and its subtasks in different projects.
+    @Test func movingAParentIsOneUndoStep() {
+        let s = makeStore()
+        let a = s.addProject(name: "A")
+        let b = s.addProject(name: "B")
+        let parent = s.addTask(title: "parent", projectID: a.id)
+        _ = s.addTask(title: "one", projectID: a.id, parentID: parent.id)
+        _ = s.addTask(title: "two", projectID: a.id, parentID: parent.id)
+
+        s.move(parent, toProject: b.id, section: nil)
+        #expect(s.tasks.allSatisfy { $0.projectID == b.id })
+
+        s.undo()
+        #expect(s.tasks.allSatisfy { $0.projectID == a.id })
+    }
 }
