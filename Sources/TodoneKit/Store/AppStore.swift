@@ -380,7 +380,12 @@ public final class AppStore {
             .sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
     }
 
-    public var incompleteTasks: [TodoTask] { tasks.filter { !$0.isCompleted } }
+    /// Open tasks the user can act on. Tasks in an archived project stay hidden
+    /// until it is unarchived.
+    public var incompleteTasks: [TodoTask] {
+        let archived = Set(projects.filter(\.isArchived).map(\.id))
+        return tasks.filter { !$0.isCompleted && !archived.contains($0.projectID) }
+    }
 
     public func overdueTasks(now: Date = Date()) -> [TodoTask] {
         let today = calendar.startOfDay(for: now)
@@ -812,6 +817,7 @@ public final class AppStore {
             }
         }
         scheduleSave()
+        onRemindersChanged?() // archived tasks leave the schedule and the Dock badge
     }
 
     /// True when `parentID` is a legal parent for `project` (no self/descendant cycles).
