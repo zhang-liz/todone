@@ -154,7 +154,9 @@ public enum FilterEngine {
         case .createdBefore(let d):
             return task.createdAt < cal.startOfDay(for: d)
         case .createdAfter(let d):
-            return task.createdAt > cal.startOfDay(for: d)
+            // Same as "date after": the named day itself is not included.
+            guard let nextDay = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: d)) else { return false }
+            return task.createdAt >= nextDay
         case .search(let text):
             let needle = text.lowercased()
             return task.title.lowercased().contains(needle)
