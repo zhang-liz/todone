@@ -112,6 +112,10 @@ private struct TaskDetailForm: View {
             dateText = ""
             model.panelFlush = (task.id, saveAll)
         }
+        // Undo changes the task under an open panel. Without this the fields keep
+        // the old text, and leaving the panel saves it again.
+        .onChange(of: task.title) { _, new in title = new }
+        .onChange(of: task.details) { _, new in details = new }
         .onDisappear {
             saveAll()
             // The next task's panel may have appeared first; keep its flush.
@@ -375,6 +379,7 @@ private struct TaskDetailForm: View {
     }
 
     private func saveTitle() {
+        guard store.task(task.id) != nil else { return }
         let trimmed = title.trimmingCharacters(in: .whitespaces)
         if !trimmed.isEmpty, trimmed != task.title {
             store.updateTask(task) { $0.title = trimmed }
@@ -382,6 +387,7 @@ private struct TaskDetailForm: View {
     }
 
     private func saveDetails() {
+        guard store.task(task.id) != nil else { return }
         if details != task.details {
             store.updateTask(task) { $0.details = details }
         }
