@@ -647,11 +647,15 @@ public final class AppStore {
                     next = following
                     guardCounter += 1
                 }
-                task.dueDate = next
-                registerCompletion(task, now: now)
-                scheduleSave()
-                onRemindersChanged?()
-                return
+                // A series past its end date is finished. An open-ended series can
+                // still be past here if it hit the catch-up guard, so keep advancing it.
+                if rule.endDate == nil || !isPast(next, now: now, hasTime: task.hasDueTime) {
+                    task.dueDate = next
+                    registerCompletion(task, now: now)
+                    scheduleSave()
+                    onRemindersChanged?()
+                    return
+                }
             }
         }
         task.completedAt = now

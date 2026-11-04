@@ -416,4 +416,16 @@ import Testing
 
         try? FileManager.default.removeItem(at: dir)
     }
+
+    // The last occurrence stayed open and overdue, and needed a second completion.
+    @Test func completingAfterTheEndDateFinishesTheSeries() {
+        let s = makeStore()
+        let parsed = QuickAddParser(calendar: cal, now: day(2026, 7, 1, 10)).parse("x every day until jul 20")
+        let t = s.addTask(from: parsed)
+        t.dueDate = day(2026, 7, 18)
+
+        s.complete(t, now: day(2026, 7, 25, 10))
+
+        #expect(t.isCompleted)
+    }
 }
