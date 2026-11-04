@@ -130,7 +130,7 @@ private struct KarmaSettings: View {
             ))
             Toggle("Vacation mode (freeze streaks)", isOn: Binding(
                 get: { store.karma.vacationMode },
-                set: { store.karma.vacationMode = $0 }
+                set: { KarmaEngine.setVacationMode($0, state: &store.karma) }
             ))
             Stepper("Daily goal: \(store.karma.dailyGoal) tasks", value: Binding(
                 get: { store.karma.dailyGoal },

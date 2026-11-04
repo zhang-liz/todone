@@ -430,12 +430,15 @@ public struct KarmaState: Codable, Equatable, Sendable {
     public var lastDailyStreakDay: String?
     /// Week key ("yyyy-Www") of the last week counted toward the weekly streak.
     public var lastWeeklyStreakWeek: String?
+    /// Day key of the day vacation mode was turned on.
+    public var vacationStartDay: String?
 
     public init(points: Int = 0, dailyGoal: Int = 5, weeklyGoal: Int = 25,
                 vacationMode: Bool = false, karmaEnabled: Bool = true,
                 currentDailyStreak: Int = 0, maxDailyStreak: Int = 0,
                 currentWeeklyStreak: Int = 0, maxWeeklyStreak: Int = 0,
-                lastDailyStreakDay: String? = nil, lastWeeklyStreakWeek: String? = nil) {
+                lastDailyStreakDay: String? = nil, lastWeeklyStreakWeek: String? = nil,
+                vacationStartDay: String? = nil) {
         self.points = points
         self.dailyGoal = dailyGoal
         self.weeklyGoal = weeklyGoal
@@ -447,6 +450,7 @@ public struct KarmaState: Codable, Equatable, Sendable {
         self.maxWeeklyStreak = maxWeeklyStreak
         self.lastDailyStreakDay = lastDailyStreakDay
         self.lastWeeklyStreakWeek = lastWeeklyStreakWeek
+        self.vacationStartDay = vacationStartDay
     }
 }
 
