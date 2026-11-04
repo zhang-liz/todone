@@ -183,7 +183,10 @@ public struct QuickAddParser {
             let start: Date
             if !rule.weekdays.isEmpty,
                !rule.weekdays.contains(calendar.component(.weekday, from: today)) {
-                start = rule.nextOccurrence(after: today, calendar: calendar) ?? today
+                // The first date is the nearest match. The interval only spaces later ones.
+                var nearest = rule
+                nearest.interval = 1
+                start = nearest.nextOccurrence(after: today, calendar: calendar) ?? today
             } else if let monthDay = rule.monthDay,
                       calendar.component(.day, from: today) != monthDay {
                 // The first date can be later this month. nextOccurrence always
