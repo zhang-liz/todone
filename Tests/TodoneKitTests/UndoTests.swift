@@ -224,6 +224,31 @@ import Testing
         #expect(Set(s.tasks.map(\.title)) == ["a", "b"])
     }
 
+    // Each new #project, /section and @label took its own step, and a new
+    // project had none, so undo left parts of the add behind.
+    @Test func quickAddIsOneUndoStep() {
+        let s = makeStore()
+        s.addTask(from: QuickAddParser().parse("Logo #Work /Doing @home"))
+        #expect(s.projectNamed("Work") != nil)
+
+        s.undo()
+
+        #expect(s.tasks.isEmpty)
+        #expect(s.projectNamed("Work") == nil)
+        #expect(s.sections.isEmpty)
+        #expect(s.labels.isEmpty)
+        #expect(!s.canUndo)
+    }
+
+    @Test func addingAProjectCanBeUndone() {
+        let s = makeStore()
+        s.addProject(name: "Work")
+
+        s.undo()
+
+        #expect(s.projectNamed("Work") == nil)
+    }
+
     // MARK: Erase is deliberately not undoable
 
     @Test func eraseAllClearsUndoHistory() {
