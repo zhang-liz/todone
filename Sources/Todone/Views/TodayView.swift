@@ -14,31 +14,7 @@ struct TodayView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                if !overdue.isEmpty {
-                    HStack {
-                        Text("Overdue")
-                            .font(.headline)
-                        Spacer()
-                        Button("Reschedule all to Today") {
-                            for t in overdue {
-                                store.updateTask(t) { task in
-                                    task.dueDate = Calendar.current.startOfDay(for: Date())
-                                    task.hasDueTime = false
-                                }
-                            }
-                        }
-                        .font(.callout)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-
-                    ForEach(overdue) { task in
-                        TaskRowView(task: task, showsProject: true)
-                            .draggable(task.id.uuidString)
-                            .padding(.horizontal, 20)
-                        Divider().padding(.leading, 48)
-                    }
-                }
+                OverdueSection(overdue: overdue, headerColor: .primary)
 
                 // Dropping a task anywhere in the Today block makes it due today.
                 VStack(alignment: .leading, spacing: 0) {
@@ -87,8 +63,8 @@ struct TodayView: View {
             .padding(.vertical, 8)
         }
         .navigationTitle("Today")
-        .onAppear { model.visibleTaskIDs = (overdue + today).map(\.id) }
-        .onChange(of: (overdue + today).map(\.id)) { _, ids in
+        .onAppear { model.visibleTaskIDs = (model.shownOverdue(overdue) + today).map(\.id) }
+        .onChange(of: (model.shownOverdue(overdue) + today).map(\.id)) { _, ids in
             model.visibleTaskIDs = ids
         }
         .taskDetailPanel()

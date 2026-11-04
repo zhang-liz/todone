@@ -45,6 +45,23 @@ final class AppModel {
     /// rather than the store's unordered array.
     var visibleTaskIDs: [UUID] = []
 
+    /// Whether a long Overdue list is open. Shared by Today and Upcoming, and not
+    /// saved, so each launch starts focused on what's coming up.
+    var overdueExpanded = false
+
+    func shownOverdue(_ overdue: [TodoTask]) -> [TodoTask] {
+        OverdueFold.shown(overdue, expanded: overdueExpanded)
+    }
+
+    /// Folding also deselects the rows it hides, so action keys can't fire on
+    /// tasks the user can't see.
+    func toggleOverdue(_ overdue: [TodoTask]) {
+        overdueExpanded.toggle()
+        if !overdueExpanded {
+            taskSelection.prune(to: Array(taskSelection.ids.subtracting(overdue.map(\.id))))
+        }
+    }
+
     func select(_ item: SidebarItem) {
         selection = item
         taskSelection.clear()

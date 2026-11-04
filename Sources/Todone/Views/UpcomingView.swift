@@ -103,8 +103,8 @@ struct UpcomingView: View {
 
     /// Overdue first, then each shown day in order — matching the rendered list.
     private var visibleOrder: [UUID] {
-        var ids = store.overdueTasks()
-            .filter { !calendar.isDateInToday($0.dueDate ?? Date()) }
+        var ids = model.shownOverdue(store.overdueTasks()
+            .filter { !calendar.isDateInToday($0.dueDate ?? Date()) })
             .map(\.id)
         for offset in 0..<daysShown {
             guard let day = calendar.date(byAdding: .day, value: offset, to: anchorDay) else { continue }
@@ -113,33 +113,9 @@ struct UpcomingView: View {
         return ids
     }
 
-    @ViewBuilder
     private var overdueBlock: some View {
-        let overdue = store.overdueTasks().filter { !calendar.isDateInToday($0.dueDate ?? Date()) }
-        if !overdue.isEmpty {
-            HStack {
-                Text("Overdue").font(.headline).foregroundStyle(.red)
-                Spacer()
-                Button("Reschedule all to Today") {
-                    for t in overdue {
-                        store.updateTask(t) { task in
-                            task.dueDate = calendar.startOfDay(for: Date())
-                            task.hasDueTime = false
-                        }
-                    }
-                }
-                .font(.callout)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 8)
-
-            ForEach(overdue) { task in
-                TaskRowView(task: task, showsProject: true)
-                    .draggable(task.id.uuidString)
-                    .padding(.horizontal, 20)
-                Divider().padding(.leading, 48)
-            }
-        }
+        OverdueSection(overdue: store.overdueTasks().filter { !calendar.isDateInToday($0.dueDate ?? Date()) },
+                       headerColor: .red)
     }
 
     private func dayBlock(_ day: Date) -> some View {
