@@ -32,11 +32,13 @@ public struct ParsedQuickAdd: Equatable {
     public var sectionName: String?
     public var labelNames: [String]
     public var tokens: [QuickAddToken]
+    /// The text named a day. A bare time ("3pm") gets a date but names no day.
+    public var namesDay: Bool
 
     public init(title: String = "", dueDate: Date? = nil, hasDueTime: Bool = false,
                 recurrence: RecurrenceRule? = nil, priority: Priority = .p4,
                 projectName: String? = nil, sectionName: String? = nil,
-                labelNames: [String] = [], tokens: [QuickAddToken] = []) {
+                labelNames: [String] = [], tokens: [QuickAddToken] = [], namesDay: Bool = false) {
         self.title = title
         self.dueDate = dueDate
         self.hasDueTime = hasDueTime
@@ -46,6 +48,22 @@ public struct ParsedQuickAdd: Equatable {
         self.sectionName = sectionName
         self.labelNames = labelNames
         self.tokens = tokens
+        self.namesDay = namesDay
+    }
+
+    /// The parse as typed into one day's list: the list's day applies unless the
+    /// text named another. A repeating task keeps the start day its rule chose.
+    public func placed(on day: Date, calendar: Calendar = .current) -> ParsedQuickAdd {
+        var copy = self
+        guard let due = dueDate else {
+            copy.dueDate = calendar.startOfDay(for: day)
+            return copy
+        }
+        guard hasDueTime, !namesDay, recurrence == nil else { return copy }
+        let time = calendar.dateComponents([.hour, .minute], from: due)
+        copy.dueDate = calendar.date(bySettingHour: time.hour ?? 0, minute: time.minute ?? 0,
+                                     second: 0, of: day) ?? due
+        return copy
     }
 }
 
@@ -205,6 +223,7 @@ public struct QuickAddParser {
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         result.tokens.sort { $0.range.location < $1.range.location }
+        result.namesDay = namedADay
         return result
     }
 

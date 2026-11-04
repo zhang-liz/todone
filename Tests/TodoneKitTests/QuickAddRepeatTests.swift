@@ -54,4 +54,27 @@ import Testing
         #expect(parser.parse("gym every day 7am").dueDate == day(2026, 7, 23, 7))
         #expect(parser.parse("standup every wed 9am").dueDate == day(2026, 7, 29, 9))
     }
+
+    // Under "Jul 30" in Upcoming, "Dentist 3pm" was due today or tomorrow, not Jul 30.
+    @Test func bareTimeInADayListUsesThatDay() {
+        let p = parser.parse("Dentist 3pm").placed(on: day(2026, 7, 30), calendar: cal)
+        #expect(p.dueDate == day(2026, 7, 30, 15))
+        #expect(p.hasDueTime)
+    }
+
+    @Test func noDateInADayListUsesThatDay() {
+        let p = parser.parse("Dentist").placed(on: day(2026, 7, 30), calendar: cal)
+        #expect(p.dueDate == day(2026, 7, 30))
+        #expect(!p.hasDueTime)
+    }
+
+    @Test func namedDayInADayListWins() {
+        let p = parser.parse("Dentist tomorrow 3pm").placed(on: day(2026, 7, 30), calendar: cal)
+        #expect(p.dueDate == day(2026, 7, 23, 15))
+    }
+
+    @Test func repeatInADayListKeepsItsStart() {
+        let p = parser.parse("Standup every day 3pm")
+        #expect(p.placed(on: day(2026, 7, 30), calendar: cal).dueDate == p.dueDate)
+    }
 }
