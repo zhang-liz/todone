@@ -250,7 +250,14 @@ public struct RecurrenceRule: Equatable {
             }
             return added
         case .year:
-            return calendar.date(byAdding: .year, value: interval, to: base)
+            guard let added = calendar.date(byAdding: .year, value: interval, to: base) else { return nil }
+            // A Feb 29 series lands on Feb 28 in other years. Return to the 29th in a leap year.
+            if anchorDay == 29, calendar.component(.month, from: added) == 2,
+               calendar.component(.day, from: added) == 28,
+               calendar.range(of: .day, in: .month, for: added)?.count == 29 {
+                return calendar.date(byAdding: .day, value: 1, to: added)
+            }
+            return added
         }
     }
 
