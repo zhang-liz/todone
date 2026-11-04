@@ -163,6 +163,37 @@ import Testing
         #expect(t.recurrenceAnchorDay == 30)
     }
 
+    @Test func movedMonthlyTaskKeepsItsNewDay() {
+        let s = makeStore()
+        let t = s.addTask(title: "rent", dueDate: day(2027, 1, 30), recurrence: "every month")
+
+        s.reschedule(t, toDay: day(2027, 2, 10))
+        s.complete(t, now: day(2027, 2, 9, 12))
+
+        #expect(t.dueDate == day(2027, 3, 10))
+        #expect(t.recurrenceAnchorDay == 10)
+    }
+
+    @Test func changingOnlyTheTimeKeepsTheMonthlyDay() {
+        let s = makeStore()
+        let t = s.addTask(title: "rent", dueDate: day(2027, 1, 30), recurrence: "every month")
+
+        s.complete(t, now: day(2027, 1, 30, 12))  // clamped to Feb 28
+        s.updateTask(t) { $0.dueDate = day(2027, 2, 28, 9); $0.hasDueTime = true }
+        s.complete(t, now: day(2027, 2, 28, 12))
+
+        #expect(t.dueDate == day(2027, 3, 30, 9))
+    }
+
+    @Test func strictMonthlyRuleCountsFromCompletion() {
+        let s = makeStore()
+        let t = s.addTask(title: "review", dueDate: day(2026, 11, 4), recurrence: "every! month")
+
+        s.complete(t, now: day(2026, 11, 20, 12))
+
+        #expect(t.dueDate == day(2026, 12, 20))
+    }
+
     @Test func taskSavedWithoutAnchorDayStillDecodes() throws {
         // A task encoded before recurrenceAnchorDay existed.
         let json = """
