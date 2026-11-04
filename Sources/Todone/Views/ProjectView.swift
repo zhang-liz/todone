@@ -397,25 +397,12 @@ struct InlineAddRow: View {
     private func submit() {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        let parsed = QuickAddParser().parse(trimmed)
-        var adjusted = parsed
-        // Inline add stays in this project/section unless #project was typed.
-        if parsed.projectName == nil {
-            _ = store.addTask(title: parsed.title.isEmpty ? trimmed : parsed.title,
-                              priority: parsed.priority,
-                              dueDate: parsed.dueDate, hasDueTime: parsed.hasDueTime,
-                              recurrence: parsed.recurrence?.displayText,
-                              projectID: projectID, sectionID: sectionID,
-                              labelIDs: resolveLabels(parsed.labelNames))
-        } else {
-            _ = store.addTask(from: adjusted)
-        }
+        var parsed = QuickAddParser().parse(trimmed)
+        if parsed.title.isEmpty { parsed.title = trimmed }
+        // Inline add stays in this project/section unless the text names another.
+        _ = store.addTask(from: parsed, defaultProjectID: projectID, defaultSectionID: sectionID)
         text = ""
         focused = true
-    }
-
-    private func resolveLabels(_ names: [String]) -> [UUID] {
-        names.map { store.addLabel(name: $0).id }
     }
 }
 

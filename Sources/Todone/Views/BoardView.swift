@@ -152,12 +152,9 @@ private struct BoardColumn: View {
     private func submit() {
         let trimmed = newText.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        let parsed = QuickAddParser().parse(trimmed)
-        _ = store.addTask(title: parsed.title.isEmpty ? trimmed : parsed.title,
-                          priority: parsed.priority,
-                          dueDate: parsed.dueDate, hasDueTime: parsed.hasDueTime,
-                          recurrence: parsed.recurrence?.displayText,
-                          projectID: projectID, sectionID: section?.id)
+        var parsed = QuickAddParser().parse(trimmed)
+        if parsed.title.isEmpty { parsed.title = trimmed }
+        _ = store.addTask(from: parsed, defaultProjectID: projectID, defaultSectionID: section?.id)
         newText = ""
         focused = true
     }

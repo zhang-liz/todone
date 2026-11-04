@@ -518,7 +518,8 @@ public final class AppStore {
 
     /// Add from a quick-add parse, resolving/creating projects, sections, labels.
     @discardableResult
-    public func addTask(from parsed: ParsedQuickAdd, defaultProjectID: UUID? = nil) -> TodoTask {
+    public func addTask(from parsed: ParsedQuickAdd, defaultProjectID: UUID? = nil,
+                        defaultSectionID: UUID? = nil) -> TodoTask {
         var projectID = defaultProjectID ?? inbox.id
         if let name = parsed.projectName {
             if let existing = projectNamed(name) {
@@ -527,7 +528,8 @@ public final class AppStore {
                 projectID = addProject(name: name).id
             }
         }
-        var sectionID: UUID?
+        // The default section belongs to the default project, so #project drops it.
+        var sectionID = parsed.projectName == nil ? defaultSectionID : nil
         if let name = parsed.sectionName {
             if let existing = sections(in: projectID).first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
                 sectionID = existing.id
