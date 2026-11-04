@@ -79,7 +79,8 @@ public struct NLDateParser {
                 return self.dateFor(month: month, day: day, year: year)
             }),
             // numeric M/D or M/D/YYYY
-            (#"\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b"#, { m, s in
+            // Not inside a URL or path, and not a fraction before a unit ("1/2 cup").
+            (#"(?<![\w/:.-])(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?(?![\w/-])(?!\s+(?:cups?|tsp|tbsp|teaspoons?|tablespoons?|oz|ounces?|lbs?|pounds?|gallons?|liters?|litres?|inch|inches|miles?|hours?|an hour|kg|ml|sticks?)\b)"#, { m, s in
                 guard let month = Int(s.substring(with: m.range(at: 1))),
                       let day = Int(s.substring(with: m.range(at: 2))),
                       month >= 1, month <= 12, day >= 1, day <= 31 else { return nil }
@@ -107,7 +108,12 @@ public struct NLDateParser {
             }),
             // today / tomorrow / yesterday shortcuts
             (#"\b(today|tod)\b"#, { _, _ in self.startOfToday }),
-            (#"\b(tomorrow|tmrw|tom)\b"#, { _, _ in
+            (#"\b(tomorrow|tmrw)\b"#, { _, _ in
+                self.calendar.date(byAdding: .day, value: 1, to: self.startOfToday)
+            }),
+            // "tom" is usually a name, so it means tomorrow only in lowercase and at
+            // the end of the text, with an optional time: "call mom tom 5pm".
+            (#"\b(?-i:tom)\b(?=\s*(?:(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s*)?$)"#, { _, _ in
                 self.calendar.date(byAdding: .day, value: 1, to: self.startOfToday)
             }),
             (#"\byesterday\b"#, { _, _ in
