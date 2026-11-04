@@ -31,8 +31,7 @@ struct FiltersLabelsView: View {
                     .contextMenu {
                         Button("Edit") { editingFilter = filter }
                         Button(filter.isFavorite ? "Remove from Favorites" : "Add to Favorites") {
-                            filter.isFavorite.toggle()
-                            store.scheduleSave()
+                            store.edit { filter.isFavorite.toggle() }
                         }
                         Button("Delete", role: .destructive) { store.deleteFilter(filter) }
                     }
@@ -64,8 +63,7 @@ struct FiltersLabelsView: View {
                     .contextMenu {
                         Button("Edit") { editingLabel = label }
                         Button(label.isFavorite ? "Remove from Favorites" : "Add to Favorites") {
-                            label.isFavorite.toggle()
-                            store.scheduleSave()
+                            store.edit { label.isFavorite.toggle() }
                         }
                         Button("Delete", role: .destructive) { store.deleteLabel(label) }
                     }
@@ -269,10 +267,11 @@ struct FilterEditorView: View {
 
     private func save() {
         if let filter {
-            filter.name = name
-            filter.query = query
-            filter.color = color
-            store.scheduleSave()
+            store.edit {
+                filter.name = name
+                filter.query = query
+                filter.color = color
+            }
         } else {
             store.addFilter(name: name, query: query, color: color)
         }
@@ -330,13 +329,15 @@ struct LabelEditorView: View {
     private func save() {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         if let label {
-            label.name = trimmed
-            label.color = color
-            store.scheduleSave()
+            store.edit {
+                label.name = trimmed
+                label.color = color
+            }
         } else {
-            let l = store.addLabel(name: trimmed)
-            l.color = color
-            store.scheduleSave()
+            store.edit {
+                let l = store.addLabel(name: trimmed)
+                l.color = color
+            }
         }
         dismiss()
     }
@@ -405,16 +406,18 @@ struct ProjectEditorView: View {
     private func save() {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         if let project {
-            project.name = trimmed
-            project.color = color
-            project.parentID = parentID
-            project.isFavorite = isFavorite
-            project.viewStyle = viewStyle
-            store.scheduleSave()
+            store.edit {
+                project.name = trimmed
+                project.color = color
+                project.parentID = parentID
+                project.isFavorite = isFavorite
+                project.viewStyle = viewStyle
+            }
         } else {
-            let p = store.addProject(name: trimmed, color: color, parentID: parentID, viewStyle: viewStyle)
-            p.isFavorite = isFavorite
-            store.scheduleSave()
+            store.edit {
+                let p = store.addProject(name: trimmed, color: color, parentID: parentID, viewStyle: viewStyle)
+                p.isFavorite = isFavorite
+            }
         }
         dismiss()
     }

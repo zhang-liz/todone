@@ -249,6 +249,32 @@ import Testing
         #expect(s.projectNamed("Work") == nil)
     }
 
+    // An edit had no step, so the next undo also removed the task added before it.
+    @Test func renameIsItsOwnUndoStep() {
+        let s = makeStore()
+        let p = s.addProject(name: "Old")
+        let t = s.addTask(title: "keep", projectID: p.id)
+        s.edit { p.name = "New" }
+
+        s.undo()
+
+        #expect(s.project(p.id)?.name == "Old")
+        #expect(s.task(t.id) != nil)
+    }
+
+    @Test func editInsideAStepStaysOneStep() {
+        let s = makeStore()
+        s.edit {
+            let l = s.addLabel(name: "home")
+            l.color = .blue
+        }
+
+        s.undo()
+
+        #expect(s.labels.isEmpty)
+        #expect(!s.canUndo)
+    }
+
     // MARK: Erase is deliberately not undoable
 
     @Test func eraseAllClearsUndoHistory() {

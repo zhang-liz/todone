@@ -145,8 +145,7 @@ struct ProjectView: View {
         ToolbarItemGroup {
             if let project, !project.isInbox {
                 Button {
-                    project.viewStyle = project.viewStyle == .list ? .board : .list
-                    store.scheduleSave()
+                    store.edit { project.viewStyle = project.viewStyle == .list ? .board : .list }
                 } label: {
                     Image(systemName: project.viewStyle == .list
                           ? "rectangle.split.3x1" : "list.bullet")
@@ -158,7 +157,7 @@ struct ProjectView: View {
                 Menu {
                     Picker("Sort by", selection: Binding(
                         get: { project.taskSort },
-                        set: { project.taskSort = $0; store.scheduleSave() }
+                        set: { value in store.edit { project.taskSort = value } }
                     )) {
                         ForEach(TaskSort.allCases, id: \.self) { option in
                             Text(option.displayName).tag(option)
@@ -167,7 +166,7 @@ struct ProjectView: View {
                     Divider()
                     Picker("Group by", selection: Binding(
                         get: { project.grouping },
-                        set: { project.grouping = $0; store.scheduleSave() }
+                        set: { value in store.edit { project.grouping = value } }
                     )) {
                         ForEach(TaskGrouping.allCases, id: \.self) { option in
                             Text(option.displayName).tag(option)
@@ -327,8 +326,7 @@ struct SectionHeaderView: View {
                     .font(.headline)
                     .onSubmit {
                         if !name.trimmingCharacters(in: .whitespaces).isEmpty {
-                            section.name = name
-                            store.scheduleSave()
+                            store.edit { section.name = name }
                         }
                         renaming = nil
                     }
