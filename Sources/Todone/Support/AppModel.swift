@@ -63,6 +63,9 @@ final class AppModel {
     }
 
     func select(_ item: SidebarItem) {
+        // Not every view lists tasks. Drop the old list so j/k can't select rows
+        // from the previous view, where action keys would change unseen tasks.
+        if item != selection { visibleTaskIDs = [] }
         selection = item
         taskSelection.clear()
     }
