@@ -56,12 +56,13 @@ final class KeyMonitor {
             }
             // Arrow keys move the selection so the action keys below have
             // something to act on without reaching for the mouse.
-            if event.keyCode == 125 { // down
-                model.moveSelection(by: 1)
-                return nil
-            }
-            if event.keyCode == 126 { // up
-                model.moveSelection(by: -1)
+            if event.keyCode == 125 || event.keyCode == 126 { // down, up
+                let offset = event.keyCode == 125 ? 1 : -1
+                if event.modifierFlags.contains(.shift) {
+                    model.extendSelection(by: offset)
+                } else {
+                    model.moveSelection(by: offset)
+                }
                 return nil
             }
 

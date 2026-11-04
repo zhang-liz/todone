@@ -85,7 +85,7 @@ final class AppModel {
 
     /// Extend the selection by one row, for shift-arrow.
     func extendSelection(by offset: Int) {
-        guard let next = ListNavigator.step(from: taskSelection.anchor, by: offset, in: visibleTaskIDs) else { return }
+        guard let next = ListNavigator.step(from: taskSelection.focus, by: offset, in: visibleTaskIDs) else { return }
         taskSelection.extend(to: next, in: visibleTaskIDs)
     }
 

@@ -103,6 +103,45 @@ import Testing
         #expect(sel.anchor == nil)
     }
 
+    // Shift+Arrow stepped from the anchor, so the range could never pass one row.
+    @Test func focusMovesWithARangeWhileTheAnchorStays() {
+        var sel = MultiSelection()
+        sel.select(ids[1])
+
+        sel.extend(to: ids[2], in: ids)
+        #expect(sel.focus == ids[2])
+        sel.extend(to: ids[3], in: ids)
+
+        #expect(sel.focus == ids[3])
+        #expect(sel.anchor == ids[1])
+        #expect(sel.ids == Set(ids[1...3]))
+    }
+
+    // The next anchor came from a Set, so it could be any selected row.
+    @Test func removingTheAnchorPicksTheLastRowAdded() {
+        var sel = MultiSelection()
+        sel.select(ids[0])
+        sel.toggle(ids[3])
+        sel.toggle(ids[1])
+        sel.toggle(ids[4])
+
+        sel.toggle(ids[4])
+
+        #expect(sel.anchor == ids[1])
+        #expect(sel.focus == ids[1])
+    }
+
+    @Test func pruneMovesTheFocusToTheAnchor() {
+        var sel = MultiSelection()
+        sel.select(ids[0])
+        sel.extend(to: ids[2], in: ids)
+
+        sel.prune(to: [ids[0], ids[1]])
+
+        #expect(sel.anchor == ids[0])
+        #expect(sel.focus == ids[0])
+    }
+
     @Test func clearResetsEverything() {
         var sel = MultiSelection()
         sel.select(ids[0])
