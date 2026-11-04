@@ -27,12 +27,31 @@ final class KeyMonitor {
                 }
                 return event
             }
+            // Menu shortcuts fire before a text field sees these keys, so ⌘⌫ deleted
+            // the whole task and ⌘Z undid the store while the user was typing.
+            if let editor = NSApp.keyWindow?.firstResponder as? NSTextView {
+                let mods = event.modifierFlags.intersection([.command, .option, .control, .shift])
+                if mods == .command, event.keyCode == 51 { // ⌘⌫
+                    editor.deleteToBeginningOfLine(nil)
+                    return nil
+                }
+                if event.charactersIgnoringModifiers?.lowercased() == "z", let undo = editor.undoManager {
+                    if mods == .command, undo.canUndo {
+                        undo.undo()
+                        return nil
+                    }
+                    if mods == [.command, .shift], undo.canRedo {
+                        undo.redo()
+                        return nil
+                    }
+                }
+            }
             // Don't steal keys from text editing or when modifiers are held.
             if event.modifierFlags.intersection([.command, .option, .control]).isEmpty == false {
                 return event
             }
             if let responder = NSApp.keyWindow?.firstResponder,
-               responder is NSTextView || responder is NSText {
+               responder is NSTextView || responder is NSText || responder is NSDatePicker {
                 return event
             }
             // Arrow keys move the selection so the action keys below have
