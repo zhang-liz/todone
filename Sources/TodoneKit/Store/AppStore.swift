@@ -148,7 +148,7 @@ public final class AppStore {
     /// Load from disk (or start fresh) and ensure invariants like the Inbox exist.
     public func load(from url: URL) {
         storeURL = url
-        if let data = try? Data(contentsOf: url) {
+        if let data = readStoreFile(at: url) {
             if let doc = try? Self.decoder.decode(StoreDocument.self, from: data) {
                 projects = doc.projects
                 sections = doc.sections
@@ -164,14 +164,34 @@ public final class AppStore {
                 // overwriting the user's data on the next save.
                 let backup = url.deletingPathExtension()
                     .appendingPathExtension("corrupt-\(Int(Date().timeIntervalSince1970)).json")
-                try? data.write(to: backup)
-                lastSaveError = "Store file was unreadable — saved a copy as \(backup.lastPathComponent) and started fresh."
+                do {
+                    try data.write(to: backup)
+                    lastSaveError = "Store file was unreadable — saved a copy as \(backup.lastPathComponent) and started fresh."
+                } catch {
+                    storeURL = nil
+                    lastSaveError = "Store file was unreadable and no copy could be made. Saving is off so the file stays as it is."
+                }
             }
         }
         ensureInbox()
         KarmaEngine.reconcileStreaks(state: &karma, now: Date(), calendar: calendar)
         // Nothing before a load is a state the user can meaningfully return to.
         clearHistory()
+    }
+
+    /// The store's bytes, or nil to start empty. Only a missing file means a first
+    /// run. Any other read failure turns saving off, because the next save would
+    /// replace a file that may still hold the user's data.
+    private func readStoreFile(at url: URL) -> Data? {
+        do {
+            return try Data(contentsOf: url)
+        } catch let error as NSError where error.domain == NSCocoaErrorDomain && error.code == NSFileReadNoSuchFileError {
+            return nil
+        } catch {
+            storeURL = nil
+            lastSaveError = "Couldn't read \(url.lastPathComponent), so saving is off and the file stays as it is. \(error.localizedDescription)"
+            return nil
+        }
     }
 
     @discardableResult
