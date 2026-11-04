@@ -123,12 +123,13 @@ public final class AppStore {
 
     /// Run `body` as one undo step, however many mutations it makes. Without
     /// this a bulk action over N tasks would need N presses of Cmd-Z.
-    public func asSingleUndoStep(_ body: () -> Void) {
-        guard !suppressCheckpoints else { body(); return }
+    @discardableResult
+    public func asSingleUndoStep<T>(_ body: () -> T) -> T {
+        guard !suppressCheckpoints else { return body() }
         checkpoint()
         suppressCheckpoints = true
-        body()
-        suppressCheckpoints = false
+        defer { suppressCheckpoints = false }
+        return body()
     }
 
     private func clearHistory() {
@@ -520,6 +521,14 @@ public final class AppStore {
     @discardableResult
     public func addTask(from parsed: ParsedQuickAdd, defaultProjectID: UUID? = nil,
                         defaultSectionID: UUID? = nil) -> TodoTask {
+        // One undo step, so undo also removes a project or label the text created.
+        asSingleUndoStep {
+            addParsedTask(parsed, defaultProjectID: defaultProjectID, defaultSectionID: defaultSectionID)
+        }
+    }
+
+    private func addParsedTask(_ parsed: ParsedQuickAdd, defaultProjectID: UUID?,
+                               defaultSectionID: UUID?) -> TodoTask {
         var projectID = defaultProjectID ?? inbox.id
         if let name = parsed.projectName {
             if let existing = projectNamed(name) {
@@ -771,6 +780,7 @@ public final class AppStore {
     @discardableResult
     public func addProject(name: String, color: ItemColor = .charcoal, parentID: UUID? = nil,
                            viewStyle: ViewStyle = .list) -> Project {
+        checkpoint()
         let order = (childProjects(of: parentID).map(\.sortOrder).max() ?? 0) + 1
         let p = Project(name: name, color: color, viewStyle: viewStyle, sortOrder: order, parentID: parentID)
         projects.append(p)

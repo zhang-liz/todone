@@ -61,9 +61,11 @@ struct QuickAddView: View {
         guard !trimmed.isEmpty else { return }
         var parsed = QuickAddParser().parse(trimmed)
         if parsed.title.isEmpty { parsed.title = trimmed }
-        let task = store.addTask(from: parsed)
-        if !description.isEmpty {
-            store.updateTask(task) { $0.details = description }
+        store.asSingleUndoStep {
+            let task = store.addTask(from: parsed)
+            if !description.isEmpty {
+                store.updateTask(task) { $0.details = description }
+            }
         }
         text = ""
         description = ""
