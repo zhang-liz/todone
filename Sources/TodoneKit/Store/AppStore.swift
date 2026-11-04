@@ -532,10 +532,22 @@ public final class AppStore {
 
     public func updateTask(_ task: TodoTask, mutate: (TodoTask) -> Void) {
         checkpoint()
+        let oldDue = task.dueDate
+        let oldRecurrence = task.recurrence
         mutate(task)
+        // A new day or rule starts a new series. The next completion adopts the
+        // current day, so a moved monthly task doesn't snap back to its old day.
+        if task.recurrence != oldRecurrence || !isSameDay(oldDue, task.dueDate) {
+            task.recurrenceAnchorDay = nil
+        }
         logEvent(.updated, task: task)
         scheduleSave()
         onRemindersChanged?()
+    }
+
+    private func isSameDay(_ lhs: Date?, _ rhs: Date?) -> Bool {
+        guard let lhs, let rhs else { return lhs == nil && rhs == nil }
+        return calendar.isDate(lhs, inSameDayAs: rhs)
     }
 
     /// Move a task to another day. A task with a due time keeps that time of
@@ -600,8 +612,10 @@ public final class AppStore {
             // its day-of-month instead of drifting to month-end once a short
             // month clamps it. Tasks saved before this field existed adopt their
             // current day the first time they advance.
-            let anchorDay = task.recurrenceAnchorDay ?? calendar.component(.day, from: base)
-            if task.recurrenceAnchorDay == nil, rule.unit == .month, rule.monthDay == nil {
+            // A strict rule counts from the completion date, so it has no fixed day.
+            let baseDay = calendar.component(.day, from: base)
+            let anchorDay = rule.strict ? baseDay : task.recurrenceAnchorDay ?? baseDay
+            if !rule.strict, task.recurrenceAnchorDay == nil, rule.unit == .month, rule.monthDay == nil {
                 task.recurrenceAnchorDay = anchorDay
             }
             if var next = rule.nextOccurrence(after: base, calendar: calendar, anchorDay: anchorDay) {
