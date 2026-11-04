@@ -269,6 +269,20 @@ import Testing
 
     // MARK: Dates without a year
 
+    // "created after" included the named day, unlike "date after".
+    @Test func createdAfterLeavesOutTheNamedDay() throws {
+        let onDay = store.addTask(title: "on the day")
+        onDay.createdAt = cal.date(from: DateComponents(year: 2026, month: 7, day: 1, hour: 9))!
+        let later = store.addTask(title: "next day")
+        later.createdAt = cal.date(from: DateComponents(year: 2026, month: 7, day: 2))!
+
+        let expr = FilterExpr.term(.createdAfter(day(2026, 7, 1)))
+        let found = store.tasksMatching(expr, now: now).map(\.title)
+
+        #expect(found.contains("next day"))
+        #expect(!found.contains("on the day"))
+    }
+
     // These rolled forward to next year, so "created after" matched nothing.
     @Test func createdDatesWithoutAYearAreInThePast() throws {
         #expect(try FilterEngine.parse("created after: jul 1", calendar: cal, now: now) == .term(.createdAfter(day(2026, 7, 1))))
