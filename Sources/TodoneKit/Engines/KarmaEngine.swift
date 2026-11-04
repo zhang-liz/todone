@@ -35,7 +35,7 @@ public enum KarmaEngine {
         let week = weekKey(for: date, calendar: calendar)
 
         // Daily goal crossing: award once, on the completion that reaches it.
-        if completedToday == state.dailyGoal, state.lastDailyStreakDay != day {
+        if completedToday >= state.dailyGoal, state.lastDailyStreakDay != day {
             state.points += dailyGoalBonus
             // Streak continues if the previous counted day was yesterday.
             if let last = state.lastDailyStreakDay,
@@ -51,7 +51,7 @@ public enum KarmaEngine {
         }
 
         // Weekly goal crossing.
-        if completedThisWeek == state.weeklyGoal, state.lastWeeklyStreakWeek != week {
+        if completedThisWeek >= state.weeklyGoal, state.lastWeeklyStreakWeek != week {
             state.points += weeklyGoalBonus
             if let last = state.lastWeeklyStreakWeek,
                isConsecutiveWeek(previous: last, current: week, near: date, calendar: calendar) {
