@@ -62,6 +62,10 @@ final class AppModel {
         }
     }
 
+    /// Saves the open task panel's unsaved text. The panel's onDisappear doesn't
+    /// run when the app quits, so the app delegate calls this instead.
+    @ObservationIgnored var panelFlush: (taskID: UUID, flush: () -> Void)?
+
     func select(_ item: SidebarItem) {
         selection = item
         taskSelection.clear()

@@ -98,8 +98,7 @@ private struct TaskDetailForm: View {
                 }
                 Spacer()
                 Button("Done") {
-                    saveTitle()
-                    saveDetails()
+                    saveAll()
                     model.selectedTaskID = nil
                 }
                 .keyboardShortcut(.escape, modifiers: [])
@@ -111,10 +110,12 @@ private struct TaskDetailForm: View {
             title = task.title
             details = task.details
             dateText = ""
+            model.panelFlush = (task.id, saveAll)
         }
         .onDisappear {
-            saveTitle()
-            saveDetails()
+            saveAll()
+            // The next task's panel may have appeared first; keep its flush.
+            if model.panelFlush?.taskID == task.id { model.panelFlush = nil }
         }
     }
 
@@ -365,6 +366,12 @@ private struct TaskDetailForm: View {
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
         }
+    }
+
+    private func saveAll() {
+        saveTitle()
+        saveDetails()
+        applyDateText()
     }
 
     private func saveTitle() {
