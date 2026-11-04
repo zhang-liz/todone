@@ -43,15 +43,13 @@ struct TaskRowView: View {
         )
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
-        // Modifier-aware taps come first: SwiftUI matches the most specific
-        // gesture, so the plain tap below only fires with no modifiers held.
+        // A plain tap gesture also fires on a modified click, so one handler
+        // reads the keys. Separate gestures could undo each other's selection.
         .onTapGesture {
-            model.handleClick(on: task.id, extending: false, toggling: false)
+            let keys = NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags
+            model.handleClick(on: task.id, extending: keys.contains(.shift),
+                              toggling: keys.contains(.command))
         }
-        .modifier(ModifierClicks(
-            onShift: { model.handleClick(on: task.id, extending: true, toggling: false) },
-            onCommand: { model.handleClick(on: task.id, extending: false, toggling: true) }
-        ))
         .contextMenu { contextMenuContent }
         .popover(isPresented: $showScheduler) {
             SchedulePopover(task: task)
@@ -451,25 +449,5 @@ struct SchedulePopover: View {
             if cal.component(.weekday, from: d) == 2 { return d }
         }
         return nil
-    }
-}
-
-/// Shift-click and cmd-click handlers for a row.
-///
-/// `onTapGesture` carries no modifier information, so the two modified cases
-/// are attached as their own gestures. SwiftUI prefers the more specific match,
-/// leaving the plain tap for unmodified clicks.
-private struct ModifierClicks: ViewModifier {
-    let onShift: () -> Void
-    let onCommand: () -> Void
-
-    func body(content: Content) -> some View {
-        content
-            .simultaneousGesture(
-                TapGesture().modifiers(.shift).onEnded(onShift)
-            )
-            .simultaneousGesture(
-                TapGesture().modifiers(.command).onEnded(onCommand)
-            )
     }
 }
