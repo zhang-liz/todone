@@ -679,6 +679,11 @@ public final class AppStore {
         let changingBucket = task.projectID != projectID || task.sectionID != sectionID
         task.projectID = projectID
         task.sectionID = sectionID
+        // A subtask leaving its parent's project becomes a root task there.
+        // Otherwise no list would show it.
+        if let parentID = task.parentID, self.task(parentID)?.projectID != projectID {
+            task.parentID = nil
+        }
         if changingBucket, task.parentID == nil {
             // Append to the end of the new bucket instead of keeping a stale
             // sort order that lands at an arbitrary position.
