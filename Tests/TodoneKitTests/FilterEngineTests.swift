@@ -266,4 +266,18 @@ import Testing
         #expect(try matches("@🎉party").map(\.title) == ["tagged"])
         #expect(try matches("search: 🎉").map(\.title) == ["🎉 celebrate"])
     }
+
+    // MARK: Dates without a year
+
+    // These rolled forward to next year, so "created after" matched nothing.
+    @Test func createdDatesWithoutAYearAreInThePast() throws {
+        #expect(try FilterEngine.parse("created after: jul 1", calendar: cal, now: now) == .term(.createdAfter(day(2026, 7, 1))))
+        #expect(try FilterEngine.parse("created before: aug 1", calendar: cal, now: now) == .term(.createdBefore(day(2025, 8, 1))))
+    }
+
+    @Test func dueDatesWithoutAYearUseTheNearestYear() throws {
+        #expect(try FilterEngine.parse("date before: jul 1", calendar: cal, now: now) == .term(.dateBefore(day(2026, 7, 1))))
+        #expect(try FilterEngine.parse("date before: aug 1", calendar: cal, now: now) == .term(.dateBefore(day(2026, 8, 1))))
+        #expect(try FilterEngine.parse("date before: jan 5", calendar: cal, now: now) == .term(.dateBefore(day(2027, 1, 5))))
+    }
 }

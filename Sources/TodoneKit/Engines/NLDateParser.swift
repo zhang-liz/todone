@@ -22,8 +22,19 @@ public struct ParsedNLDate: Equatable {
 /// Parses natural-language date expressions like "tomorrow", "next monday",
 /// "jul 30", "in 3 days", "3pm". Finds the expression anywhere in the input.
 public struct NLDateParser {
+    /// How to pick the year of a date typed without one.
+    public enum YearlessDates {
+        /// The next time it comes round. Right for scheduling a task.
+        case next
+        /// The closest to today, in either direction.
+        case nearest
+        /// The latest that isn't in the future.
+        case past
+    }
+
     public var calendar: Calendar
     public var now: Date
+    public var yearlessDates = YearlessDates.next
 
     public init(calendar: Calendar = .current, now: Date = Date()) {
         self.calendar = calendar
@@ -246,11 +257,28 @@ public struct NLDateParser {
         guard let candidate = validated(calendar.date(from: comps), month: month, day: day) else {
             return nil
         }
-        if candidate < startOfToday {
-            comps.year = currentYear + 1
-            return validated(calendar.date(from: comps), month: month, day: day)
+        switch yearlessDates {
+        case .next:
+            if candidate < startOfToday {
+                comps.year = currentYear + 1
+                return validated(calendar.date(from: comps), month: month, day: day)
+            }
+            return candidate
+        case .past:
+            if candidate > startOfToday {
+                comps.year = currentYear - 1
+                return validated(calendar.date(from: comps), month: month, day: day)
+            }
+            return candidate
+        case .nearest:
+            let options = [currentYear - 1, currentYear + 1].compactMap { year -> Date? in
+                comps.year = year
+                return validated(calendar.date(from: comps), month: month, day: day)
+            } + [candidate]
+            return options.min {
+                abs($0.timeIntervalSince(startOfToday)) < abs($1.timeIntervalSince(startOfToday))
+            }
         }
-        return candidate
     }
 
     /// Nil unless the built date actually landed on the requested month/day

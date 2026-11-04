@@ -334,11 +334,13 @@ public enum FilterEngine {
             return try readArgument()
         }
 
-        mutating func parseDateArgument() throws -> Date {
+        // A filter date can be in the past, unlike a date typed for a new task.
+        mutating func parseDateArgument(yearless: NLDateParser.YearlessDates = .nearest) throws -> Date {
             skipWhitespace()
             let argumentStart = pos
             let text = try readArgument()
-            let parser = NLDateParser(calendar: calendar, now: now)
+            var parser = NLDateParser(calendar: calendar, now: now)
+            parser.yearlessDates = yearless
             guard let parsed = parser.parse(text) else {
                 throw FilterParseError("Can't understand date \"\(text)\"")
             }
@@ -372,8 +374,8 @@ public enum FilterEngine {
             if consume("due before:") { return .dateBefore(try parseDateArgument()) }
             if consume("due after:") { return .dateAfter(try parseDateArgument()) }
             if consume("due:") { return .dateOn(try parseDateArgument()) }
-            if consume("created before:") { return .createdBefore(try parseDateArgument()) }
-            if consume("created after:") { return .createdAfter(try parseDateArgument()) }
+            if consume("created before:") { return .createdBefore(try parseDateArgument(yearless: .past)) }
+            if consume("created after:") { return .createdAfter(try parseDateArgument(yearless: .past)) }
             if consume("search:") { return .search(try readSearchArgument()) }
 
             // N days
