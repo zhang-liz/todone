@@ -42,6 +42,13 @@ public struct RecurrenceRule: Equatable {
     /// UTF-16 range it occupied, or nil if no recurrence found.
     public static func parse(from text: String, calendar: Calendar = .current,
                              now: Date = Date()) -> (rule: RecurrenceRule, range: NSRange)? {
+        parseWithEnd(from: text, calendar: calendar, now: now).map { ($0.rule, $0.range) }
+    }
+
+    /// Like `parse`, plus the range of any "until <date>" phrase, which can sit
+    /// apart from the recurrence: "gym every day with Sam until dec 1".
+    static func parseWithEnd(from text: String, calendar: Calendar,
+                             now: Date) -> (rule: RecurrenceRule, range: NSRange, until: NSRange?)? {
         let lower = text as NSString  // matched case-insensitively; captures lowercased at use
         let full = NSRange(location: 0, length: lower.length)
 
@@ -50,27 +57,32 @@ public struct RecurrenceRule: Equatable {
         // removes the whole phrase from the title.
         var endDate: Date?
         var untilRange: NSRange?
-        if let regex = try? NSRegularExpression(pattern: #"\s+(?:until|till|til|through)\s+(.+)$"#, options: [.caseInsensitive]),
-           let m = regex.firstMatch(in: text, range: full) {
-            let tail = lower.substring(with: m.range(at: 1))
-            if let parsed = NLDateParser(calendar: calendar, now: now).parse(tail), parsed.hasExplicitDay {
-                endDate = calendar.startOfDay(for: parsed.date)
-                untilRange = m.range
+        if let regex = try? NSRegularExpression(pattern: #"\s+(?:until|till|til|through)\s+(?=(.+)$)"#, options: [.caseInsensitive]) {
+            for m in regex.matches(in: text, range: full) {
+                let tail = lower.substring(with: m.range(at: 1))
+                // The date must come straight after the word, so "read through
+                // emails" is not an end date. Only the day belongs to the phrase;
+                // other words and any time stay for the title and date parser.
+                if let parsed = NLDateParser(calendar: calendar, now: now).parse(tail), parsed.hasExplicitDay,
+                   let day = parsed.ranges.first, day.location == 0 {
+                    endDate = calendar.startOfDay(for: parsed.date)
+                    untilRange = NSRange(location: m.range.location,
+                                         length: m.range(at: 1).location - m.range.location + day.length)
+                    break
+                }
             }
         }
-        let searchText = untilRange.map { lower.replacingCharacters(in: $0, with: "") } ?? text
+        // Blank rather than remove the phrase, so later ranges stay valid.
+        let searchText = untilRange.map {
+            lower.replacingCharacters(in: $0, with: String(repeating: " ", count: $0.length))
+        } ?? text
         let inner = Self.parseCore(from: searchText, calendar: calendar, now: now)
         guard var result = inner else { return nil }
-        if let endDate, let untilRange {
+        if let endDate {
             result.rule.endDate = endDate
             result.rule.displayText += " until " + Self.endDateText(endDate, calendar: calendar)
-            // The recurrence sits before the stripped "until", so its range is
-            // still valid; extend it to cover the phrase we removed.
-            result.range = NSRange(location: result.range.location,
-                                   length: max(result.range.length,
-                                               untilRange.location + untilRange.length - result.range.location))
         }
-        return result
+        return (result.rule, result.range, untilRange)
     }
 
     private static func endDateText(_ date: Date, calendar: Calendar) -> String {
