@@ -132,6 +132,15 @@ public final class AppStore {
         return body()
     }
 
+    /// A direct edit of a project, section, label or filter. Without its own
+    /// step, the next undo would revert the edit along with the change before it.
+    public func edit(_ body: () -> Void) {
+        asSingleUndoStep {
+            body()
+            scheduleSave()
+        }
+    }
+
     private func clearHistory() {
         undoStack.removeAll()
         redoStack.removeAll()

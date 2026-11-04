@@ -224,8 +224,7 @@ struct SidebarView: View {
         .contextMenu {
             Button("Edit") { editingProject = project }
             Button(project.isFavorite ? "Remove from Favorites" : "Add to Favorites") {
-                project.isFavorite.toggle()
-                store.scheduleSave()
+                store.edit { project.isFavorite.toggle() }
             }
             Button("Add Section") {
                 store.addSection(name: "New Section", projectID: project.id)
