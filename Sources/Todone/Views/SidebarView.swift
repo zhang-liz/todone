@@ -9,6 +9,7 @@ struct SidebarView: View {
     @State private var showNewProject = false
     @State private var editingProject: Project?
     @State private var showKarma = false
+    @State private var projectToDelete: Project?
 
     var body: some View {
         @Bindable var model = model
@@ -97,13 +98,27 @@ struct SidebarView: View {
                         .tag(SidebarItem.project(project.id))
                         .contextMenu {
                             Button("Unarchive") { store.archiveProject(project, archived: false) }
-                            Button("Delete", role: .destructive) { store.deleteProject(project) }
+                            Button("Delete", role: .destructive) { projectToDelete = project }
                         }
                     }
                 }
             }
         }
         .listStyle(.sidebar)
+        .confirmationDialog(
+            projectToDelete.map { "Delete \"\($0.name)\"?" } ?? "",
+            isPresented: Binding(
+                get: { projectToDelete != nil },
+                set: { if !$0 { projectToDelete = nil } }
+            ),
+            presenting: projectToDelete
+        ) { project in
+            Button("Delete", role: .destructive) { delete(project) }
+        } message: { project in
+            let doomed = store.descendantProjectIDs(of: project.id)
+            let count = store.tasks.filter { doomed.contains($0.projectID) }.count
+            Text("This also deletes \(count) \(count == 1 ? "task" : "tasks") and any sub-projects.")
+        }
         .safeAreaInset(edge: .bottom) {
             HStack {
                 Button {
@@ -176,6 +191,19 @@ struct SidebarView: View {
         .tag(item.tag)
     }
 
+    private func delete(_ project: Project) {
+        // The delete cascades to descendants; clear any selection into them.
+        let doomed = store.descendantProjectIDs(of: project.id)
+        if case .project(let sel) = model.selection, doomed.contains(sel) {
+            model.select(.inbox)
+        }
+        if let tid = model.selectedTaskID, let t = store.task(tid),
+           doomed.contains(t.projectID) {
+            model.selectedTaskID = nil
+        }
+        store.deleteProject(project)
+    }
+
     @ViewBuilder
     private func projectRow(_ project: Project, depth: Int) -> some View {
         let children = store.childProjects(of: project.id)
@@ -203,18 +231,7 @@ struct SidebarView: View {
             }
             Divider()
             Button("Archive") { store.archiveProject(project) }
-            Button("Delete", role: .destructive) {
-                // The delete cascades to descendants; clear any selection into them.
-                let doomed = store.descendantProjectIDs(of: project.id)
-                if case .project(let sel) = model.selection, doomed.contains(sel) {
-                    model.select(.inbox)
-                }
-                if let tid = model.selectedTaskID, let t = store.task(tid),
-                   doomed.contains(t.projectID) {
-                    model.selectedTaskID = nil
-                }
-                store.deleteProject(project)
-            }
+            Button("Delete", role: .destructive) { projectToDelete = project }
         }
 
         ForEach(children) { child in
