@@ -135,10 +135,11 @@ public struct QuickAddParser {
 
         // 3. Recurrence ("every ..."), before plain dates so weekday lists
         //    aren't eaten by the date parser.
-        if let (rule, range) = RecurrenceRule.parse(from: masked, calendar: calendar, now: now),
-           !isDisabled(range) {
+        if let (rule, range, until) = RecurrenceRule.parseWithEnd(from: masked, calendar: calendar, now: now),
+           !isDisabled(range), !(until.map(isDisabled) ?? false) {
             result.recurrence = rule
             claim(range, .recurrence)
+            if let until { claim(until, .recurrence) }
         }
 
         // 4. Date/time.
@@ -163,9 +164,18 @@ public struct QuickAddParser {
             if !rule.weekdays.isEmpty,
                !rule.weekdays.contains(calendar.component(.weekday, from: today)) {
                 start = rule.nextOccurrence(after: today, calendar: calendar) ?? today
-            } else if rule.monthDay != nil,
-                      calendar.component(.day, from: today) != rule.monthDay {
-                start = rule.nextOccurrence(after: today, calendar: calendar) ?? today
+            } else if let monthDay = rule.monthDay,
+                      calendar.component(.day, from: today) != monthDay {
+                // The first date can be later this month. nextOccurrence always
+                // moves to a new month, so it would skip that date.
+                let lastDay = calendar.range(of: .day, in: .month, for: today)?.count ?? 28
+                var comps = calendar.dateComponents([.year, .month], from: today)
+                comps.day = min(monthDay, lastDay)
+                if let thisMonth = calendar.date(from: comps), thisMonth >= today {
+                    start = thisMonth
+                } else {
+                    start = rule.nextOccurrence(after: today, calendar: calendar) ?? today
+                }
             } else {
                 start = today
             }
@@ -175,7 +185,12 @@ public struct QuickAddParser {
                 let time = calendar.dateComponents([.hour, .minute], from: timed)
                 comps.hour = time.hour
                 comps.minute = time.minute
-                result.dueDate = calendar.date(from: comps) ?? start
+                var due = calendar.date(from: comps) ?? start
+                // A time already past would make the new task overdue at once.
+                if due <= now, let next = rule.nextOccurrence(after: due, calendar: calendar) {
+                    due = next
+                }
+                result.dueDate = due
             } else {
                 result.dueDate = start
             }
