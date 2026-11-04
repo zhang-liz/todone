@@ -171,6 +171,7 @@ private struct BoardCard: View {
             HStack(alignment: .top, spacing: 8) {
                 Button {
                     store.complete(task)
+                    if model.selectedTaskID == task.id { model.selectedTaskID = nil }
                 } label: {
                     Circle()
                         .strokeBorder(task.priority.color, lineWidth: 1.5)

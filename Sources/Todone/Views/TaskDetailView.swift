@@ -23,6 +23,12 @@ struct TaskDetailView: View {
 /// window, so the panel is laid out with a plain stack instead.
 private struct TaskDetailPanel: ViewModifier {
     @Environment(AppModel.self) private var model
+    @Environment(AppStore.self) private var store
+
+    // The selected task can be gone, for example after its parent is deleted.
+    private var showsPanel: Bool {
+        model.selectedTaskID.flatMap { store.task($0) } != nil
+    }
 
     func body(content: Content) -> some View {
         HStack(spacing: 0) {
@@ -30,14 +36,14 @@ private struct TaskDetailPanel: ViewModifier {
             content
                 .frame(minWidth: 300, maxWidth: .infinity)
                 .layoutPriority(1)
-            if model.selectedTaskID != nil {
+            if showsPanel {
                 Divider()
                 TaskDetailView()
                     .frame(minWidth: 260, idealWidth: 320, maxWidth: 320)
                     .transition(.move(edge: .trailing))
             }
         }
-        .animation(.easeOut(duration: 0.2), value: model.selectedTaskID != nil)
+        .animation(.easeOut(duration: 0.2), value: showsPanel)
     }
 }
 
