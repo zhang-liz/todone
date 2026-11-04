@@ -115,7 +115,15 @@ public final class AppStore {
         reminders = doc.reminders
         events = doc.events
         dailyStats = doc.dailyStats
-        karma = doc.karma
+        // Undo restores progress. Settings have no undo step of their own, so
+        // they stay as the user set them.
+        var restored = doc.karma
+        restored.dailyGoal = karma.dailyGoal
+        restored.weeklyGoal = karma.weeklyGoal
+        restored.karmaEnabled = karma.karmaEnabled
+        restored.vacationMode = karma.vacationMode
+        restored.vacationStartDay = karma.vacationStartDay
+        karma = restored
         ensureInbox()
         scheduleSave()
         onRemindersChanged?()

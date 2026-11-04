@@ -275,6 +275,22 @@ import Testing
         #expect(!s.canUndo)
     }
 
+    // Undoing a task change also put back the old goals and vacation setting.
+    @Test func undoKeepsKarmaSettings() {
+        let s = makeStore()
+        let t = s.addTask(title: "t")
+        s.complete(t, now: now)
+        let earned = s.karma.points
+        s.karma.dailyGoal = 9
+        s.karma.vacationMode = true
+
+        s.undo()
+
+        #expect(s.karma.points < earned)
+        #expect(s.karma.dailyGoal == 9)
+        #expect(s.karma.vacationMode)
+    }
+
     // MARK: Erase is deliberately not undoable
 
     @Test func eraseAllClearsUndoHistory() {
