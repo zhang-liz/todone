@@ -64,6 +64,39 @@ public enum KarmaEngine {
         }
     }
 
+    /// Turn vacation mode on or off. A streak alive when vacation started can
+    /// continue after it, because the vacation days no longer count as missed.
+    public static func setVacationMode(_ on: Bool, state: inout KarmaState, now: Date = Date(),
+                                       calendar: Calendar = .current) {
+        guard on != state.vacationMode else { return }
+        state.vacationMode = on
+        if on {
+            state.vacationStartDay = dayKey(for: now, calendar: calendar)
+            return
+        }
+        defer { state.vacationStartDay = nil }
+        guard let startKey = state.vacationStartDay,
+              let start = dateFromDayKey(startKey, calendar: calendar) else { return }
+        let today = calendar.startOfDay(for: now)
+
+        if startKey != dayKey(for: today, calendar: calendar),
+           let last = state.lastDailyStreakDay,
+           let dayBeforeStart = calendar.date(byAdding: .day, value: -1, to: start),
+           let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
+           last == startKey || last == dayKey(for: dayBeforeStart, calendar: calendar) {
+            state.lastDailyStreakDay = dayKey(for: yesterday, calendar: calendar)
+        }
+
+        let startWeek = weekKey(for: start, calendar: calendar)
+        if startWeek != weekKey(for: today, calendar: calendar),
+           let last = state.lastWeeklyStreakWeek,
+           let weekBeforeStart = calendar.date(byAdding: .day, value: -7, to: start),
+           let lastWeek = calendar.date(byAdding: .day, value: -7, to: today),
+           last == startWeek || last == weekKey(for: weekBeforeStart, calendar: calendar) {
+            state.lastWeeklyStreakWeek = weekKey(for: lastWeek, calendar: calendar)
+        }
+    }
+
     /// Break the daily streak if a day passed without meeting the goal.
     /// Call on app launch / day change.
     public static func reconcileStreaks(state: inout KarmaState, now: Date, calendar: Calendar = .current) {
