@@ -331,6 +331,21 @@ import Testing
         let expr = try FilterEngine.parse("7 days", calendar: cal, now: now)
         #expect(Set(store.tasksMatching(expr, now: now).map(\.title)) == ["today", "day6"])
     }
+
+    // Lowering the goal below today's count used to skip the credit for the day.
+    @Test func passingALoweredGoalStillCountsOnce() {
+        var state = KarmaState(dailyGoal: 5, weeklyGoal: 5)
+        KarmaEngine.applyCompletion(state: &state, date: day(2026, 7, 22, 9),
+                                    completedToday: 7, completedThisWeek: 7, calendar: cal)
+        #expect(state.currentDailyStreak == 1)
+        #expect(state.currentWeeklyStreak == 1)
+        let points = state.points
+
+        KarmaEngine.applyCompletion(state: &state, date: day(2026, 7, 22, 10),
+                                    completedToday: 8, completedThisWeek: 8, calendar: cal)
+        #expect(state.currentDailyStreak == 1)
+        #expect(state.points == points + KarmaEngine.completionPoints)
+    }
 }
 
 private extension JSONDecoder {
