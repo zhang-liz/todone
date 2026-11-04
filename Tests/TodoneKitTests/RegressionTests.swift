@@ -329,6 +329,19 @@ import Testing
         #expect(store.projects.filter { !$0.isInbox }.allSatisfy { $0.isArchived })
     }
 
+    // The catch-up stopped after 1000 steps, so a daily task over 3 years old stayed overdue.
+    @Test func veryOldRepeatingTaskCatchesUpInOneCompletion() {
+        let store = makeStore()
+        let now = Date()
+        let old = cal.date(byAdding: .year, value: -5, to: now)!
+        let t = store.addTask(title: "old", dueDate: old, recurrence: "every day")
+
+        store.complete(t, now: now)
+
+        #expect(t.dueDate! >= cal.startOfDay(for: now))
+        #expect(!t.isCompleted)
+    }
+
     // MARK: Unarchiving
 
     @Test func archivedProjectsAreListedSoTheyCanBeRecovered() {

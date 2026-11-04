@@ -692,8 +692,9 @@ public final class AppStore {
             if var next = rule.nextOccurrence(after: base, calendar: calendar, anchorDay: anchorDay) {
                 // Overdue recurring task: skip already-passed occurrences so one
                 // completion catches up instead of staying overdue.
+                // About 55 years of a daily task. A lower limit left old tasks overdue.
                 var guardCounter = 0
-                while isPast(next, now: now, hasTime: task.hasDueTime), guardCounter < 1000,
+                while isPast(next, now: now, hasTime: task.hasDueTime), guardCounter < 20_000,
                       let following = rule.nextOccurrence(after: next, calendar: calendar, anchorDay: anchorDay) {
                     next = following
                     guardCounter += 1
