@@ -16,6 +16,7 @@ struct TaskRowView: View {
     @State private var showScheduler = false
 
     var body: some View {
+        let _ = model.dayTick // "Today" and "Tomorrow" change at midnight
         HStack(alignment: .top, spacing: 10) {
             checkbox
 

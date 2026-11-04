@@ -12,6 +12,7 @@ struct SidebarView: View {
     @State private var projectToDelete: Project?
 
     var body: some View {
+        let _ = model.dayTick // re-render the Today count and drop date at midnight
         @Bindable var model = model
         List(selection: Binding(
             get: { model.selection },
