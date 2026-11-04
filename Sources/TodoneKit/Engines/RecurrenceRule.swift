@@ -120,6 +120,21 @@ public struct RecurrenceRule: Equatable {
             }
         }
 
+        // every [!] other monday / every [!] 3 mondays
+        if let regex = try? NSRegularExpression(pattern: #"\bevery(!?) (?:(\d+)|other) ("# + weekdayAlt + #")s?\b"#, options: [.caseInsensitive]),
+           let m = regex.firstMatch(in: lower as String, range: full),
+           let weekday = NLDateParser.weekdayNames[lower.substring(with: m.range(at: 3)).lowercased()] {
+            let strict = lower.substring(with: m.range(at: 1)) == "!"
+            var interval = 2
+            if m.range(at: 2).location != NSNotFound {
+                interval = max(1, Int(lower.substring(with: m.range(at: 2))) ?? 1)
+            }
+            let count = interval == 2 ? "other " : interval == 1 ? "" : "\(interval) "
+            let rule = RecurrenceRule(interval: interval, unit: .week, weekdays: [weekday], strict: strict,
+                                      displayText: "every\(strict ? "!" : "") \(count)\(Self.shortName(forWeekday: weekday))")
+            return (rule, m.range)
+        }
+
         // every [!] workday / weekday
         if let regex = try? NSRegularExpression(pattern: #"\bevery(!?) (workday|weekday)\b"#, options: [.caseInsensitive]),
            let m = regex.firstMatch(in: lower as String, range: full) {
@@ -127,6 +142,22 @@ public struct RecurrenceRule: Equatable {
             let rule = RecurrenceRule(interval: 1, unit: .week, weekdays: [2, 3, 4, 5, 6],
                                       strict: strict,
                                       displayText: "every\(strict ? "!" : "") workday")
+            return (rule, m.range)
+        }
+
+        // every [!] [N] month(s) on the last day / every [!] last day [of the month]
+        if let regex = try? NSRegularExpression(pattern: #"\bevery(!?) (?:(?:(\d+) )?months? on the last day|last day(?: of (?:the|each) month)?)\b"#, options: [.caseInsensitive]),
+           let m = regex.firstMatch(in: lower as String, range: full) {
+            let strict = lower.substring(with: m.range(at: 1)) == "!"
+            var interval = 1
+            if m.range(at: 2).location != NSNotFound,
+               let n = Int(lower.substring(with: m.range(at: 2))) {
+                interval = max(1, n)
+            }
+            let unitWord = interval == 1 ? "month" : "\(interval) months"
+            // Day 31 clamps to the length of each month.
+            let rule = RecurrenceRule(interval: interval, unit: .month, monthDay: 31, strict: strict,
+                                      displayText: "every\(strict ? "!" : "") \(unitWord) on the last day")
             return (rule, m.range)
         }
 
@@ -225,7 +256,10 @@ public struct RecurrenceRule: Equatable {
             for _ in 0..<15 {
                 guard let n = calendar.date(byAdding: .day, value: 1, to: d) else { return nil }
                 d = n
-                if weekdays.contains(calendar.component(.weekday, from: d)) { return d }
+                if weekdays.contains(calendar.component(.weekday, from: d)) {
+                    // "every other mon": the next match, then the skipped weeks.
+                    return calendar.date(byAdding: .day, value: 7 * (interval - 1), to: d)
+                }
             }
             return nil
         case .month:
