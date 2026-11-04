@@ -5,8 +5,10 @@ import TodoneKit
 /// can't drop mutations.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static weak var store: AppStore?
+    static weak var model: AppModel?
 
     func applicationWillTerminate(_ notification: Notification) {
+        Self.model?.panelFlush?.flush()
         Self.store?.saveNow()
     }
 }
@@ -15,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct TodoneApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var store: AppStore
-    @State private var model = AppModel()
+    @State private var model: AppModel
     @AppStorage("themeID") private var themeID = "todoneRed"
     @AppStorage("appearance") private var appearanceRaw = AppearanceSetting.system.rawValue
 
@@ -28,6 +30,9 @@ struct TodoneApp: App {
         }
         _store = State(initialValue: s)
         AppDelegate.store = s
+        let m = AppModel()
+        _model = State(initialValue: m)
+        AppDelegate.model = m
         NotificationScheduler.shared.attach(store: s)
     }
 
