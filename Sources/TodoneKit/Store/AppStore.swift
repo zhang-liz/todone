@@ -384,6 +384,24 @@ public final class AppStore {
             .sorted { $0.sortOrder < $1.sortOrder }
     }
 
+    /// Open tasks of a project in the order its list shows them: each section,
+    /// its groups, and each task followed by its subtasks. The list shows four
+    /// levels of subtasks.
+    public func listOrder(project projectID: UUID) -> [UUID] {
+        func subtaskIDs(of parentID: UUID, depth: Int) -> [UUID] {
+            subtasks(of: parentID, includeCompleted: false).flatMap { sub -> [UUID] in
+                [sub.id] + (depth < 4 ? subtaskIDs(of: sub.id, depth: depth + 1) : [])
+            }
+        }
+        let grouping = project(projectID)?.grouping ?? .none
+        let sectionIDs: [UUID?] = [nil] + sections(in: projectID).map(\.id)
+        return sectionIDs.flatMap { sectionID -> [UUID] in
+            let groups = TaskSorter.grouped(rootTasks(project: projectID, section: sectionID), by: grouping,
+                                            calendar: calendar, projectName: { self.project($0)?.name })
+            return groups.flatMap { $0.tasks }.flatMap { [$0.id] + subtaskIDs(of: $0.id, depth: 1) }
+        }
+    }
+
     public func completedTasks(project projectID: UUID) -> [TodoTask] {
         tasks
             .filter { $0.projectID == projectID && $0.isCompleted }

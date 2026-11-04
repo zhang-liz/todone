@@ -77,15 +77,9 @@ struct ProjectView: View {
         .taskDetailPanel()
     }
 
-    /// Task IDs in the order the list renders them: unsectioned first, then each
-    /// section in turn. Mirrors `listBody` so keyboard navigation follows what
-    /// is actually on screen.
+    /// Keyboard navigation and shift-click follow what is on screen.
     private var visibleOrder: [UUID] {
-        var ids = store.rootTasks(project: projectID, section: nil).map(\.id)
-        for section in store.sections(in: projectID) {
-            ids += store.rootTasks(project: projectID, section: section.id).map(\.id)
-        }
-        return ids
+        store.listOrder(project: projectID)
     }
 
     private func listBody(_ project: Project) -> some View {
