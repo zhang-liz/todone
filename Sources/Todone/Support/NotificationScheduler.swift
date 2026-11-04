@@ -78,7 +78,7 @@ final class NotificationScheduler {
         let center = UNUserNotificationCenter.current()
         center.removeAllPendingNotificationRequests()
 
-        let planned = NotificationPlanner.plan(tasks: store.tasks, reminders: store.reminders,
+        let planned = NotificationPlanner.plan(tasks: store.incompleteTasks, reminders: store.reminders,
                                                notifyAtDueTime: Self.notifyAtDueTime, now: Date())
             .sorted { $0.fireDate < $1.fireDate }
             .prefix(Self.pendingLimit)
