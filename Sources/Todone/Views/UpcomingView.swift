@@ -200,11 +200,7 @@ private struct UpcomingInlineAdd: View {
     private func submit() {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        var parsed = QuickAddParser().parse(trimmed)
-        if parsed.dueDate == nil {
-            parsed.dueDate = day
-        }
-        _ = store.addTask(from: parsed)
+        _ = store.addTask(from: QuickAddParser().parse(trimmed).placed(on: day))
         text = ""
     }
 }
