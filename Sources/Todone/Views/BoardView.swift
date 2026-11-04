@@ -167,6 +167,7 @@ private struct BoardCard: View {
     let task: TodoTask
 
     var body: some View {
+        let _ = model.dayTick // "Today" and "Tomorrow" change at midnight
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 8) {
                 Button {
