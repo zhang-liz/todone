@@ -56,6 +56,20 @@ private func makeNow() -> (Calendar, Date) {
         #expect(r.date == day(2026, 7, 27))
     }
 
+    // On a Wednesday, "next friday" gave this Friday, the same as "friday".
+    @Test func nextWeekdayStillToComeThisWeekMeansNextWeek() {
+        #expect(parser.parse("next friday")?.date == day(2026, 7, 31))
+        #expect(parser.parse("friday")?.date == day(2026, 7, 24))
+    }
+
+    @Test func nextWeekdayAlreadyPastThisWeekIsTheComingOne() {
+        #expect(parser.parse("next tuesday")?.date == day(2026, 7, 28))
+    }
+
+    @Test func nextOnTheSameWeekdayIsOneWeekOn() {
+        #expect(parser.parse("next wednesday")?.date == day(2026, 7, 29))
+    }
+
     @Test func monthNameDay() throws {
         let r = try #require(parser.parse("dentist jul 30"))
         #expect(r.date == day(2026, 7, 30))
