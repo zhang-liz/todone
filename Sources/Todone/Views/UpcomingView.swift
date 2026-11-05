@@ -7,23 +7,29 @@ struct UpcomingView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.appTheme) private var theme
 
-    @State private var anchorDay = Calendar.current.startOfDay(for: Date())
-    @State private var daysShown = 30
+    /// The list always starts today, so a jump does not hide the days before it.
+    @State private var firstDay = Calendar.current.startOfDay(for: Date())
+    @State private var selectedDay = Calendar.current.startOfDay(for: Date())
+    @State private var daysShown = Self.stripDays
     @State private var addingDay: Date?
+
+    /// Every day in the month strip is also in the list, so a jump always lands.
+    private static let stripDays = 60
 
     private var calendar: Calendar { Calendar.current }
 
     var body: some View {
-        VStack(spacing: 0) {
-            monthStrip
-            Divider()
-            ScrollViewReader { proxy in
+        ScrollViewReader { proxy in
+            VStack(spacing: 0) {
+                monthStrip(proxy)
+                Divider()
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
+                    // Not lazy: scrollTo cannot be relied on to find a row that is not built yet.
+                    VStack(alignment: .leading, spacing: 0) {
                         overdueBlock
 
                         ForEach(0..<daysShown, id: \.self) { offset in
-                            if let day = calendar.date(byAdding: .day, value: offset, to: anchorDay) {
+                            if let day = calendar.date(byAdding: .day, value: offset, to: firstDay) {
                                 dayBlock(day)
                                     .id(dayKey(day))
                             }
@@ -34,12 +40,10 @@ struct UpcomingView: View {
                     }
                     .padding(.vertical, 8)
                 }
-                .onChange(of: anchorDay) {
-                    proxy.scrollTo(dayKey(anchorDay), anchor: .top)
-                }
                 .onChange(of: model.dayTick) {
-                    // Midnight rollover: re-anchor so "today" isn't yesterday.
-                    anchorDay = calendar.startOfDay(for: Date())
+                    // Midnight rollover: start again from the new today.
+                    firstDay = calendar.startOfDay(for: Date())
+                    selectedDay = firstDay
                 }
             }
         }
@@ -55,13 +59,13 @@ struct UpcomingView: View {
 
     // MARK: - Month strip
 
-    private var monthStrip: some View {
+    private func monthStrip(_ proxy: ScrollViewProxy) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
-                ForEach(0..<60, id: \.self) { offset in
+                ForEach(0..<Self.stripDays, id: \.self) { offset in
                     if let day = calendar.date(byAdding: .day, value: offset,
                                                to: calendar.startOfDay(for: Date())) {
-                        dayCell(day)
+                        dayCell(day, proxy)
                     }
                 }
             }
@@ -70,14 +74,15 @@ struct UpcomingView: View {
         }
     }
 
-    private func dayCell(_ day: Date) -> some View {
-        let isSelected = calendar.isDate(day, inSameDayAs: anchorDay)
+    private func dayCell(_ day: Date, _ proxy: ScrollViewProxy) -> some View {
+        let isSelected = calendar.isDate(day, inSameDayAs: selectedDay)
         let count = store.tasksDue(on: day).count
         let weekdayF = DateFormatter()
         weekdayF.dateFormat = "EEE"
 
         return Button {
-            anchorDay = day
+            selectedDay = day
+            proxy.scrollTo(dayKey(day), anchor: .top)
         } label: {
             VStack(spacing: 2) {
                 Text(weekdayF.string(from: day))
@@ -107,7 +112,7 @@ struct UpcomingView: View {
             .filter { !calendar.isDateInToday($0.dueDate ?? Date()) })
             .map(\.id)
         for offset in 0..<daysShown {
-            guard let day = calendar.date(byAdding: .day, value: offset, to: anchorDay) else { continue }
+            guard let day = calendar.date(byAdding: .day, value: offset, to: firstDay) else { continue }
             ids += store.tasksDue(on: day).map(\.id)
         }
         return ids
