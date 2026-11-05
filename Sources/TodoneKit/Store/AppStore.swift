@@ -641,6 +641,14 @@ public final class AppStore {
         }
     }
 
+    /// Move several tasks to one day as one undo step. A long list would
+    /// otherwise use up the undo stack.
+    public func reschedule(_ tasks: [TodoTask], toDay day: Date?) {
+        asSingleUndoStep {
+            for task in tasks { reschedule(task, toDay: day) }
+        }
+    }
+
     /// Set the time of day on a task's due date. `nil` turns it back into an
     /// all-day task. An undated task is placed on today.
     public func setDueTime(_ task: TodoTask, to time: Date?, now: Date = Date()) {

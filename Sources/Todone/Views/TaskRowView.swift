@@ -235,14 +235,7 @@ struct TaskRowView: View {
                 model.taskSelection.clear()
             }
             Button("Due Today (\(n))") {
-                store.asSingleUndoStep {
-                    for t in actionTargets {
-                        store.updateTask(t) { task in
-                            task.dueDate = Calendar.current.startOfDay(for: Date())
-                            task.hasDueTime = false
-                        }
-                    }
-                }
+                store.reschedule(actionTargets, toDay: Date())
             }
             Menu("Priority (\(n))") {
                 ForEach(Priority.allCases, id: \.rawValue) { p in
