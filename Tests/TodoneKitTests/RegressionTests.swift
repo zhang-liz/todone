@@ -63,7 +63,7 @@ import Testing
     @Test func nextSatStillParses() throws {
         let parser = NLDateParser(calendar: cal, now: now)
         let r = try #require(parser.parse("next sat"))
-        #expect(r.date == day(2026, 7, 25))
+        #expect(r.date == day(2026, 8, 1))
     }
 
     @Test func streetAddressIsNotATime() {

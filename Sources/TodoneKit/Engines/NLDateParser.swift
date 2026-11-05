@@ -104,8 +104,11 @@ public struct NLDateParser {
             }),
             // next weekday
             (#"\bnext (sun|sunday|mon|monday|tue|tues|tuesday|wed|weds|wednesday|thu|thur|thurs|thursday|fri|friday|sat|saturday)\b"#, { m, s in
-                guard let wd = Self.weekdayNames[s.substring(with: m.range(at: 1)).lowercased()] else { return nil }
-                return self.next(weekday: wd, after: self.startOfToday)
+                guard let wd = Self.weekdayNames[s.substring(with: m.range(at: 1)).lowercased()],
+                      let coming = self.next(weekday: wd, after: self.startOfToday) else { return nil }
+                // As in Todoist: a day still to come this week means next week's.
+                let isThisWeek = self.calendar.isDate(coming, equalTo: self.startOfToday, toGranularity: .weekOfYear)
+                return isThisWeek ? self.calendar.date(byAdding: .day, value: 7, to: coming) : coming
             }),
             // next week / next month / next year
             (#"\bnext week\b"#, { _, _ in
