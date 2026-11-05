@@ -46,16 +46,7 @@ struct OverdueSection: View {
             }
             Spacer()
             Button("Reschedule all to Today") {
-                // One undo step: the undo stack holds 50, so a step per task
-                // would make a long list impossible to fully undo.
-                store.asSingleUndoStep {
-                    for t in overdue {
-                        store.updateTask(t) { task in
-                            task.dueDate = Calendar.current.startOfDay(for: Date())
-                            task.hasDueTime = false
-                        }
-                    }
-                }
+                store.reschedule(overdue, toDay: Date())
             }
             .font(.callout)
         }
