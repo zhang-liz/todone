@@ -329,7 +329,7 @@ struct SectionHeaderView: View {
                 Text(section.name)
                     .font(.headline)
             }
-            Text("\(store.rootTasks(project: section.projectID, section: section.id).count)")
+            Text("\(store.openTaskCount(project: section.projectID, section: section.id))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()

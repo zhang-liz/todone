@@ -447,6 +447,31 @@ public final class AppStore {
         }
     }
 
+    /// How many rows a project's list shows: open tasks and their open subtasks.
+    /// An open subtask of a completed task is not in the list, so it is not counted.
+    public func openTaskCount(project projectID: UUID) -> Int {
+        let shown = Set(sections(in: projectID).map(\.id))
+        return shownRowCount(project: projectID) { $0.map(shown.contains) ?? true }
+    }
+
+    /// How many rows one section of a project's list shows.
+    public func openTaskCount(project projectID: UUID, section sectionID: UUID?) -> Int {
+        shownRowCount(project: projectID) { $0 == sectionID }
+    }
+
+    private func shownRowCount(project projectID: UUID, inSection: (UUID?) -> Bool) -> Int {
+        let open = tasks.filter { $0.projectID == projectID && !$0.isCompleted }
+        let children = Dictionary(grouping: open.filter { $0.parentID != nil }) { $0.parentID! }
+        func subtaskCount(of id: UUID, depth: Int) -> Int {
+            (children[id] ?? []).reduce(0) { total, sub in
+                total + 1 + (depth < 4 ? subtaskCount(of: sub.id, depth: depth + 1) : 0)
+            }
+        }
+        return open
+            .filter { $0.parentID == nil && inSection($0.sectionID) }
+            .reduce(0) { $0 + 1 + subtaskCount(of: $1.id, depth: 1) }
+    }
+
     public func completedTasks(project projectID: UUID) -> [TodoTask] {
         tasks
             .filter { $0.projectID == projectID && $0.isCompleted }

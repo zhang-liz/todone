@@ -23,7 +23,7 @@ struct SidebarView: View {
                     HStack {
                         Text("Inbox")
                         Spacer()
-                        countBadge(store.rootTasks(project: store.inbox.id, section: nil).count)
+                        countBadge(store.openTaskCount(project: store.inbox.id))
                     }
                 } icon: {
                     Image(systemName: "tray")
@@ -212,7 +212,7 @@ struct SidebarView: View {
             HStack {
                 Text(project.name)
                 Spacer()
-                countBadge(taskCount(project))
+                countBadge(store.openTaskCount(project: project.id))
             }
         } icon: {
             Image(systemName: "number")
@@ -237,10 +237,6 @@ struct SidebarView: View {
         ForEach(children) { child in
             AnyView(projectRow(child, depth: depth + 1))
         }
-    }
-
-    private func taskCount(_ project: Project) -> Int {
-        store.tasks.filter { $0.projectID == project.id && !$0.isCompleted }.count
     }
 
     @ViewBuilder
