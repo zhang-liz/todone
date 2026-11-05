@@ -13,11 +13,14 @@ public struct StoreDocument: Codable {
     public var events: [ActivityEvent]
     public var dailyStats: [DailyStat]
     public var karma: KarmaState
+    /// The zone the all-day dates were written in. nil in files saved before this existed.
+    public var timeZoneID: String?
 
     public init(version: Int = 1, projects: [Project] = [], sections: [ProjectSection] = [],
                 tasks: [TodoTask] = [], labels: [TaskLabel] = [], filters: [SavedFilter] = [],
                 reminders: [TaskReminder] = [], events: [ActivityEvent] = [],
-                dailyStats: [DailyStat] = [], karma: KarmaState = KarmaState()) {
+                dailyStats: [DailyStat] = [], karma: KarmaState = KarmaState(),
+                timeZoneID: String? = nil) {
         self.version = version
         self.projects = projects
         self.sections = sections
@@ -28,6 +31,7 @@ public struct StoreDocument: Codable {
         self.events = events
         self.dailyStats = dailyStats
         self.karma = karma
+        self.timeZoneID = timeZoneID
     }
 }
 
@@ -105,6 +109,7 @@ public final class AppStore {
 
     private func apply(_ snapshot: Data) {
         guard let doc = try? Self.decoder.decode(StoreDocument.self, from: snapshot) else { return }
+        keepAllDayDates(of: doc.tasks, writtenIn: doc.timeZoneID)
         suppressCheckpoints = true
         defer { suppressCheckpoints = false }
         projects = doc.projects
@@ -168,6 +173,7 @@ public final class AppStore {
         storeURL = url
         if let data = readStoreFile(at: url) {
             if let doc = try? Self.decoder.decode(StoreDocument.self, from: data) {
+                keepAllDayDates(of: doc.tasks, writtenIn: doc.timeZoneID)
                 projects = doc.projects
                 sections = doc.sections
                 tasks = doc.tasks
@@ -225,7 +231,38 @@ public final class AppStore {
     func document() -> StoreDocument {
         StoreDocument(projects: projects, sections: sections, tasks: tasks, labels: labels,
                       filters: filters, reminders: reminders, events: events,
-                      dailyStats: dailyStats, karma: karma)
+                      dailyStats: dailyStats, karma: karma,
+                      timeZoneID: calendar.timeZone.identifier)
+    }
+
+    // MARK: - Time zones
+
+    /// Call when the system time zone changes. All-day tasks stay on their day.
+    /// Tasks with a due time stay at the same moment, so their local time changes.
+    public func timeZoneDidChange(to zone: TimeZone) {
+        let oldID = calendar.timeZone.identifier
+        guard zone.identifier != oldID else { return }
+        calendar.timeZone = zone
+        keepAllDayDates(of: tasks, writtenIn: oldID)
+        scheduleSave()
+        onRemindersChanged?()
+    }
+
+    /// An all-day date is stored as midnight in one zone. In a zone further west
+    /// that moment is still the day before, so the task moved to the wrong day.
+    private func keepAllDayDates(of tasks: [TodoTask], writtenIn zoneID: String?) {
+        guard let zoneID, zoneID != calendar.timeZone.identifier,
+              let zone = TimeZone(identifier: zoneID) else { return }
+        var written = calendar
+        written.timeZone = zone
+        for task in tasks where !task.hasDueTime {
+            guard let due = task.dueDate else { continue }
+            var day = written.dateComponents([.year, .month, .day], from: due)
+            day.hour = 12 // Every day has a noon. A clock change can skip midnight.
+            if let noon = calendar.date(from: day) {
+                task.dueDate = calendar.startOfDay(for: noon)
+            }
+        }
     }
 
     /// ISO8601 with fractional seconds so completion timestamps within the

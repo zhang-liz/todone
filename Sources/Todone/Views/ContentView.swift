@@ -31,7 +31,16 @@ struct ContentView: View {
             }
         }
         .animation(.default, value: store.lastSaveError)
-        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)
+            .receive(on: DispatchQueue.main)) { _ in
+            model.dayTick += 1
+            NotificationScheduler.shared.rescheduleAll()
+            NotificationScheduler.shared.refreshBadge()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)
+            .receive(on: DispatchQueue.main)) { _ in
+            NSTimeZone.resetSystemTimeZone()
+            store.timeZoneDidChange(to: .current)
             model.dayTick += 1
             NotificationScheduler.shared.rescheduleAll()
             NotificationScheduler.shared.refreshBadge()
